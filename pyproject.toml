@@ -1,0 +1,29 @@
+[project]
+name = "FERM"
+version = "1.0.0"
+description = "FERM: Features-Enriched Radiation Model"
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy >= 1.26",
+    "scipy >= 1.10",
+    "rioxarray >= 0.18.0",
+    "rasterio >= 1.4.0",
+    "geopy >= 2.3",
+    "geokernels >= 0.2.2",
+    "ARSpy @ git+https://github.com/MFreidank/ARSpy.git",
+    "tqdm >= 4.65"
+]
+
+[project.scripts]
+run-ferm = "scripts.run_ferm:main"
+run-ferm-cluster = "scripts.run_ferm_cluster:main"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

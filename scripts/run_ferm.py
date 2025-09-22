@@ -1,0 +1,33 @@
+# scripts/run_ferm.py
+
+import argparse
+from ferm.model import FERM
+from ferm.config import DEFAULT_PATHS, NB_PARTICULES, SIGMA
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run FERM mobility simulation (single process)")
+    parser.add_argument("--niche", default=DEFAULT_PATHS["niche_array"], help="Path to niche array (.npy)")
+    parser.add_argument("--x", default=DEFAULT_PATHS["x_coords"], help="Path to longitude array (.npy)")
+    parser.add_argument("--y", default=DEFAULT_PATHS["y_coords"], help="Path to latitude array (.npy)")
+    parser.add_argument("--pop", default=DEFAULT_PATHS["pop_raster"], help="Path to population raster (.tif)")
+    parser.add_argument("--out", default=DEFAULT_PATHS["output_matrix"], help="Output path (.npz)")
+    parser.add_argument("--sigma", type=float, default=SIGMA, help="Standard deviation for sampling")
+    parser.add_argument("--particles", type=int, default=NB_PARTICULES, help="Number of walkers per origin")
+
+    args = parser.parse_args()
+
+    FERM(
+        path_niche_array=args.niche,
+        path_x=args.x,
+        path_y=args.y,
+        path_pop=args.pop,
+        nb_particules=args.particles,
+        sigma=args.sigma,
+        save_path=args.out
+    )
+
+
+if __name__ == "__main__":
+    main()
+
