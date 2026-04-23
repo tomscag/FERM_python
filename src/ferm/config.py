@@ -1,29 +1,38 @@
-# config.py
+from dataclasses import dataclass
+from pathlib import Path
 
-"""
-Default configuration parameters for the FERM model.
-"""
+@dataclass(frozen=True)
+class Config:
+    datapath: Path = Path("./data")
+    target_continent: str | None = "Asia"
+    niche_type: str = "gdp_per_capita_2018"
+    niche_method: str = "zscore_log"
+    verbose: bool = True
+    num_particles: int = 1000
+    sigma: float = 1.0
 
-# Default number of particles per origin
-NB_PARTICULES: int = 100
+    @property
+    def pop_path(self) -> Path:
+        return self.datapath / "population/API_SP.POP.TOTL_DS2_en_csv_v2_61.csv"
 
-# Standard deviation of the Gaussian used in absorption sampling
-SIGMA: float = 1.0
+    @property
+    def flow_path(self) -> Path:
+        return self.datapath / "migrations/international_migration_flow.csv"
 
-# Default bounding box for filtering niche
-XMIN: float = -40
-XMAX: float = 47
-YMIN: float = 4
+    @property
+    def gdp_path(self) -> Path:
+        return self.datapath / "API_NY.GDP.PCAP.CD_DS2_en_csv_v2_46.csv"
 
-# Default number of parallel processes (can be set to os.cpu_count())
-N_PROCESSES: int = 12
+    @property
+    def migration_path(self) -> Path:
+        return self.datapath / "migration_stock_2018.csv"
 
-# Default file paths (to be overridden by CLI or script)
-DEFAULT_PATHS = {
-    "niche_array": "array_of_niche_to_pop.npy",
-    "x_coords": "x_pop.npy",
-    "y_coords": "y_pop.npy",
-    "pop_raster": "pop_test.tif",
-    "output_matrix": "mobility_matrix.npz"
-}
+    @property
+    def hdi_path(self) -> Path:
+        return self.datapath / "hdi_2020_clean.csv"
 
+    @property
+    def niche_path(self) -> Path:
+        if self.niche_type == "gdp_per_capita_2018":
+            return self.gdp_path
+        raise ValueError(f"Unknown niche_type: {self.niche_type}")

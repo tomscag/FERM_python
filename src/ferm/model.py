@@ -1,207 +1,159 @@
+# from dataclasses import dataclass
+
 import numpy as np
-import scipy.sparse as sp
-import rioxarray
-from multiprocessing import Pool
-from ferm.sampling import gaussian_distribution_max
-from ferm.utils import parse_lat_lon, precise_the_mask
-from ferm.distance import wrap_geodist
+import pandas as pd
+# import scipy.sparse as sp
+from scipy import stats
+from math import radians, sin, cos, sqrt, atan2
 
-# Globals (to be set inside `initializer`)
-array_niche = None
-x_pop = None
-y_pop = None
-mask = None
-mask_x = None
-mask_y = None
-points = None
+# from ferm.distance import wrap_geodist
 
-def FERM(
-        path_niche_array: str, 
-        path_x: str, 
-        path_y: str, 
+
+class FERM:
+    """
+    Implement the Feature-Enriched Radiation Model (FERM).
+    
+    """    
+              
+    def __init__(
+        self,
+        path_niche_array: str,
         path_pop: str,
-        nb_particules: int = 100, 
-        sigma: float = 1.0,
-        save_path: str = "pop=test_sparse_mobility_mat.npz",
-        verbose: bool = False,
-        ) -> None:
-    """
-    Run the FERM simulation and save the resulting mobility matrix.
+    ) -> None:
+        """
+        Parameters
+        ----------
+            
+        """ 
 
-    Parameters
-    ----------
-    path_niche_array : str
-        Path to the .npy file containing niche suitability array.
-    path_x : str
-        Path to the .npy file containing longitude coordinates.
-    path_y : str
-        Path to the .npy file containing latitude coordinates.
-    path_pop : str
-        Path to the raster file containing population data.
-    nb_particules : int, optional
-        Number of walkers per origin location. Default is 100.
-    sigma : float, optional
-        Standard deviation used for Gaussian absorption. Default is 1.0.
-    save_path : str, optional
-        Path to save the resulting sparse matrix. Default is "pop=test_sparse_mobility_mat.npz".
-    """
-    global mask_x, mask_y, points
+        self.path_niche_array = path_niche_array
+        self.path_pop = path_pop
 
-    df_pop = rioxarray.open_rasterio(path_pop)
-    array_niche_local = np.load(path_niche_array)
-    x_pop_local = np.load(path_x)
-    y_pop_local = np.load(path_y)
+    
+    @staticmethod
+    def build_distance_matrix(nodes):
+        codes = nodes["code"].tolist()
+        D = pd.DataFrame(0.0, index=codes, columns=codes)
+        coord = nodes.set_index("code")[["lat", "lon"]]
+        for i in codes:
+            for j in codes:
+                if i != j:
+                    D.loc[i, j] = haversine_km(coord.loc[i, "lat"], coord.loc[i, "lon"], coord.loc[j, "lat"], coord.loc[j, "lon"])
+        return D
 
-    array_niche_local = precise_the_mask(
-        -40, 47, 4, x_pop_local, y_pop_local, array_niche_local)
-    mask_local = np.where(array_niche_local != 0)
-    mask_x, mask_y, points = parse_lat_lon(mask_local, x_pop_local, y_pop_local)
 
-    P_final = sp.lil_matrix((len(mask_x), len(mask_x)))
+    # -------------------------------------------------------------------------
+    # Run FERM - Compute fluxes
+    # -------------------------------------------------------------------------
+        
+    def run(
+            self,
+            nodes:pd.DataFrame, 
+            num_particles:int = 300, 
+            sigma:float = 0.15, 
+            niche_col:str = "niche",
+            verbose: bool = False,            
+            ) -> pd.DataFrame:
+        """
+        Run the FERM model on a node table.
+    
+        Parameters
+        ----------
+        nodes : pd.DataFrame
+            Must contain:
+            - 'code': unique node identifier
+            - 'population': node population
+            - niche_col: niche variable
+        num_particles : int, default=300
+            Number of particles sampled per origin.
+        sigma : float, default=0.15
+            Standard deviation used in Gaussian max sampling.
+        niche_col : str, default='gdp_per_capita_2018'
+            Column used as niche mean.
+        verbose : bool, default=False
+            If True, print current origin code.
+    
+        Returns
+        -------
+        pd.DataFrame
+            origin-destination flux matrix.
+        """
+        
 
-    for i in range(len(mask_x)):
-        if verbose: print(f"{i} out of {len(mask_x)}")
-        p1 = np.array(points[i])
-        x_current = mask_local[0][i]
-        y_current = mask_local[1][i]
-        pop_i = int(df_pop.sel(x=p1[1], y=p1[0]).values[0])
+        # Distance matrix
+        D = FERM.build_distance_matrix(nodes)                
+        
+        nodes = nodes.set_index("code")
 
-        if pop_i < 1:
-            continue
-
-        distances = np.array([wrap_geodist(p1, points[j]) for j in range(len(points))])
-        index_sort = np.argsort(distances)[1:]  # Exclude self
-
-        for _ in range(nb_particules):
-            mu = array_niche_local[x_current][y_current] + 1e-6
-            absorption_i = gaussian_distribution_max(sigma, mu, pop_i)
-
-            for index in index_sort:
-                p_dest = np.array(points[index])
-                pop_j = int(df_pop.sel(x=p_dest[1], y=p_dest[0]).values[0])
-
-                if pop_j < 1:
-                    continue
-
-                x_dest = mask_local[0][index]
-                y_dest = mask_local[1][index]
-                mu_j = array_niche_local[x_dest][y_dest] + 1e-6
-                absorbance_j = gaussian_distribution_max(sigma, mu_j, pop_j)
-
-                if absorbance_j > absorption_i:
-                    P_final[i, index] += 1
+        populations = nodes["population"].round().clip(lower=1).astype(int)
+        
+        niche = nodes[niche_col].astype(float).fillna(0.0)
+        
+        res = pd.DataFrame(0.0, index=nodes.index, columns=nodes.index)
+        
+        for i in nodes.index:
+            if verbose: print(f"{i}")
+            
+            m_i = populations[i]
+            mu_i = niche[i]
+            absorption_i = gaussian_max_sample_vec(
+                mu=mu_i, 
+                sigma=sigma, 
+                n=m_i, 
+                size=num_particles
+            )
+            
+            dests_sorted = [j for j in D.loc[i].sort_values().index if j != i]
+            assigned = np.zeros(num_particles, dtype=bool)
+            counts = pd.Series(0.0, index=nodes.index)
+            
+            for j in dests_sorted:
+                if assigned.all():
                     break
+                n_j = populations[j]
+                mu_j = niche[j] 
+                
+                n_remaining = (~assigned).sum()
+                absorbance_j = gaussian_max_sample_vec(
+                    mu=mu_j, 
+                    sigma=sigma, 
+                    n=n_j, 
+                    size=n_remaining
+                    )
+                win_mask_local = absorbance_j > absorption_i[~assigned]
+                if np.any(win_mask_local):
+                    idx_global = np.where(~assigned)[0][win_mask_local]
+                    counts[j] += len(idx_global)
+                    assigned[idx_global] = True
+            if counts.sum() > 0:
+                res.loc[i] = counts / counts.sum()
+        return res
 
-    P_final = P_final.tocsr()
-    P_final = P_final / nb_particules
-    sp.save_npz(save_path, P_final)
 
-def initializer():
-    """Initialize global variables for multiprocessing pool workers."""
-    global array_niche, x_pop, y_pop, mask, mask_x, mask_y, points
-    pass
 
-def FERM_multiprocessing(i: int, path_pop: str,
-                          nb_particules: int, sigma: float) -> sp.lil_matrix:
+def gaussian_max_sample_vec(mu, sigma, n, size):
     """
-    Multiprocessing helper for computing a single row of the FERM matrix.
-
-    Parameters
-    ----------
-    i : int
-        Index of origin point.
-    path_pop : str
-        Path to the population raster.
-    nb_particules : int
-        Number of walkers per origin.
-    sigma : float
-        Standard deviation of the Gaussian absorption.
-
-    Returns
-    -------
-    sp.lil_matrix
-        Sparse matrix with a single row of mobility transitions.
+    Sample the maximum of n Gaussian samples
     """
-    global array_niche, mask, mask_x, points
-    df_pop = rioxarray.open_rasterio(path_pop)
-    p1 = np.array(points[i])
-    x_current = mask[0][i]
-    y_current = mask[1][i]
-    pop_i = int(df_pop.sel(x=p1[1], y=p1[0]).values[0])
+    # assert isinstance(n,int) and n >= 1
+    n = max(int(n), 1)
+    if sigma < 0:
+        raise ValueError("sigma must be nonnegative")
+    if sigma == 0:
+        return np.full(size, float(mu))
+    u = np.random.random(size=size)
+    q = np.exp(np.log(u) / n)
+    return mu + sigma * stats.norm.ppf(q)
 
-    row = sp.lil_matrix((1, len(mask_x)))
+def haversine_km(lat1, lon1, lat2, lon2):
+    R = 6371.0
+    phi1, phi2 = radians(lat1), radians(lat2)
+    dphi = radians(lat2 - lat1)
+    dlambda = radians(lon2 - lon1)
+    a = sin(dphi / 2.0) ** 2 + cos(phi1) * cos(phi2) * sin(dlambda / 2.0) ** 2
+    return 2 * R * atan2(sqrt(a), sqrt(1 - a))
 
-    if pop_i < 1:
-        return row
 
-    distances = np.array([wrap_geodist(p1, points[j]) for j in range(len(points))])
-    index_sort = np.argsort(distances)[1:]
 
-    for _ in range(nb_particules):
-        mu = array_niche[x_current][y_current] + 1e-6
-        absorption_i = gaussian_distribution_max(sigma, mu, pop_i)
 
-        for index in index_sort:
-            p_dest = np.array(points[index])
-            pop_j = int(df_pop.sel(x=p_dest[1], y=p_dest[0]).values[0])
 
-            if pop_j < 1:
-                continue
-
-            x_dest = mask[0][index]
-            y_dest = mask[1][index]
-            mu_j = array_niche[x_dest][y_dest] + 1e-6
-            absorbance_j = gaussian_distribution_max(sigma, mu_j, pop_j)
-
-            if absorbance_j > absorption_i:
-                row[0, index] += 1
-                break
-
-    return row
-
-def run_parallel(path_niche_array: str, path_x: str, path_y: str, path_pop: str,
-                 nb_particules: int = 100, sigma: float = 1.0,
-                 n_processes: int = 12) -> sp.csr_matrix:
-    """
-    Launch parallel FERM computation.
-
-    Parameters
-    ----------
-    path_niche_array : str
-        Path to .npy niche data.
-    path_x : str
-        Path to longitude .npy file.
-    path_y : str
-        Path to latitude .npy file.
-    path_pop : str
-        Path to .tif population raster.
-    nb_particules : int, optional
-        Number of particles per origin.
-    sigma : float, optional
-        Standard deviation.
-    n_processes : int, optional
-        Number of parallel workers.
-
-    Returns
-    -------
-    sp.csr_matrix
-        Sparse mobility matrix.
-    """
-    global array_niche, x_pop, y_pop, mask, mask_x, mask_y, points
-
-    array_niche = np.load(path_niche_array)
-    x_pop = np.load(path_x)
-    y_pop = np.load(path_y)
-    mask = np.where(array_niche != 0)
-    mask_x, mask_y, points = parse_lat_lon(mask, x_pop, y_pop)
-
-    args = [(i, path_pop, nb_particules, sigma) for i in range(len(mask_x))]
-    P_final = sp.lil_matrix((len(mask_x), len(mask_x)))
-
-    with Pool(processes=n_processes, initializer=initializer) as pool:
-        results = pool.starmap(FERM_multiprocessing, args)
-
-    for i, row in enumerate(results):
-        P_final[i] = row
-
-    return P_final.tocsr() / nb_particules

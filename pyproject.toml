@@ -13,7 +13,10 @@ dependencies = [
     "geopy >= 2.3",
     "geokernels >= 0.2.2",
     "ARSpy @ git+https://github.com/MFreidank/ARSpy.git",
-    "tqdm >= 4.65"
+    "tqdm >= 4.65",
+    "cartopy>=0.25.0",
+    "geopandas>=1.1.3",
+    "pycountry>=26.2.16",
 ]
 
 [project.scripts]
