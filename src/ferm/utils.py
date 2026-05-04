@@ -9,17 +9,8 @@ NE_URL = "https://naturalearth.s3.amazonaws.com/50m_cultural/ne_50m_admin_0_coun
 
 #------------------------------------------------------------------------------
 
-def ensure_columns(df, required, df_name="DataFrame"):
-    missing = [c for c in required if c not in df.columns]
-    if missing:
-        raise ValueError(f"{df_name} is missing required columns: {missing}")
 
-
-def code_to_country(code):
-    return {"XK": "Kosovo", "TW": "Taiwan"}.get(code, code)
-
-
-def load_migration_data(path):
+def load_migration_data(path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"Could not find migration file at {path}.")
     df = pd.read_csv(path)
@@ -40,19 +31,44 @@ def load_migration_data(path):
     return df[df["country_from"] != df["country_to"]].copy()
 
 
-def load_population_data(path):
+def load_population_data(path, years: str = ["2019", "2020", "2021", "2022"]) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"Could not find population file at {path}.")
     wb = pd.read_csv(path, skiprows=4)
-    cols_needed = ["Country Name", "Country Code", "2019", "2020", "2021", "2022"]
+    cols_needed = ["Country Name", "Country Code"] + years
     ensure_columns(wb, cols_needed, "population data")
     wb = wb[cols_needed].copy()
-    for c in ["2019", "2020", "2021", "2022"]:
+    for c in years:
         wb[c] = pd.to_numeric(wb[c], errors="coerce")
-    wb["population"] = wb[["2019", "2020", "2021", "2022"]].mean(axis=1)
+    wb["population"] = wb[years].mean(axis=1)
     pop = wb.rename(columns={"Country Name": "country_name_wb", "Country Code": "iso3"})[["country_name_wb", "iso3", "population"]]
     pop["iso3"] = pop["iso3"].astype(str).str.strip().str.upper()
     return pop.dropna(subset=["iso3", "population"]).drop_duplicates(subset="iso3")
+
+
+
+
+def prepare_nodes(country_df, flows_df) -> pd.DataFrame:
+    """ 
+    Extract nodes
+    """
+    used_codes = sorted(set(flows_df["country_from"]).union(set(flows_df["country_to"])))
+    nodes = country_df[country_df["code"].isin(used_codes)].drop_duplicates("code").copy()
+    ensure_columns(nodes, ["code", "country_name", "lat", "lon", "population"], "nodes metadata")
+    missing_codes = sorted(set(used_codes) - set(nodes["code"]))
+    if missing_codes:
+        print(f"Warning: missing metadata for these countries: {missing_codes}")
+    return nodes
+
+
+def ensure_columns(df, required, df_name="DataFrame"):
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"{df_name} is missing required columns: {missing}")
+
+
+def code_to_country(code):
+    return {"XK": "Kosovo", "TW": "Taiwan"}.get(code, code)
 
 
 def load_country_geometries_global():    
@@ -218,8 +234,6 @@ def load_niche_data(path, niche_type="gdp_per_capita_2018"):
         return load_hdi_2020(path)
     else:
         raise ValueError(f"Unsupported niche type: {niche_type}")
-
-
 
 
 def build_master_country_table(country_geo, pop, niche_df=None, niche_col="gdp_per_capita_2018"):
