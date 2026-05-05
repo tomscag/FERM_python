@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from pathlib import Path
 
 from src.ferm.model import FERM, RM
 from src.ferm.preprocessing import (
@@ -19,8 +18,7 @@ from src.ferm.utils import (
 from src.ferm.config import Config
 
 
-
-#%%
+#%% Data preparation
 
 config = Config(
     niche_method = "zscore_log",
@@ -66,41 +64,115 @@ flows, country = filter_flows_by_continent(
     continent=config.target_continent
     )
 
-# pair_lookup = split_flows_by_period(
-#     df_model, 
-#     master_country_df
-#     )
+
+# Split into periods
+pair_lookup = split_flows_by_period(
+    flows, 
+    master_country
+    )
 
 
-country = add_niche(country, niche_col=config.niche_type, method=config.niche_method)
+country = add_niche(
+    country, 
+    niche_col=config.niche_type, 
+    method=config.niche_method
+    )
 
 
 nodes = prepare_nodes(country, flows)
 
-#%% Run FERM
+#%% Test 
 ferm = FERM(
     nodes,
     flows,
      )
 
 res = ferm.run(
-    num_particles = int(1e4),#config.num_particles, 
+    num_particles = int(1e4),
     sigma = config.sigma, 
-    niche_col = "niche", # modify name
+    niche_col = "niche", 
     verbose = True)
 
-
-#%% Run RM
 rm = RM(
         nodes,
         flows,
         )
 
-
 res = rm.run()
 
 
+#%% Analysis periods 
+from src.ferm.plotting import plot_rm_vs_ferm_error_scatter, plot_timeseries_migrants
 
+only_label="test_2019_h2"
+
+comparisons_radiation = {}
+comparisons_ferm = {}
+
+for label, flows_partial in pair_lookup.items():
+    
+    flows_partial.rename({'total_migrants':'num_migrants'}, axis=1, inplace=True)
+    
+    if only_label is not None and label != only_label:
+        continue
+    if len(flows_partial) == 0:
+        continue
+    print(f"Computing period: {label}")
+    
+    nodes_rm = prepare_nodes(country, flows_partial)
+    
+    rm = RM(
+        nodes=nodes_rm,
+        flows=flows_partial,
+    )
+    results = rm.run()
+    
+    comparisons_radiation[label] = {
+        "nodes": nodes_rm,
+        "D": results.distance_matrix,
+        "S": results.intervening_population_matrix,
+        "P": results.probability_matrix,
+        "comparison": results.comparison
+    }
+    
+    ferm = FERM(
+        nodes=nodes_rm,
+        flows=flows,
+    )
+
+    results = ferm.run(
+        num_particles = 500000, # config.num_particles,
+        sigma = 5.0, #config.sigma, 
+        niche_col = "niche", 
+        verbose = False)
+
+    comparisons_ferm[label] = {
+        "nodes": nodes_rm,
+        "D": results.distance_matrix,
+        "P": results.probability_matrix,
+        "comparison": results.comparison
+    }
+
+
+#%% Plotting
+comp_rm = comparisons_radiation[only_label]["comparison"]
+comp_f = comparisons_ferm[only_label]["comparison"]
+
+#TODO fix this column name
+comp_rm.rename({'num_migrants':'total_migrants'}, axis=1, inplace=True)
+comp_f.rename({'num_migrants':'total_migrants'}, axis=1, inplace=True)
+
+plot_rm_vs_ferm_error_scatter(
+    comp_rm,
+    comp_f,
+    label=only_label,
+    metric="abs_log",
+    niche_type= config.niche_type
+)
+
+
+#%% Plot time series migrants
+plot_timeseries_migrants(migrations)
 
 
 
