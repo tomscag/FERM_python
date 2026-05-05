@@ -21,15 +21,15 @@ class Config:
 
     @property
     def gdp_path(self) -> Path:
-        return self.datapath / "API_NY.GDP.PCAP.CD_DS2_en_csv_v2_46.csv"
+        return self.datapath / "features/API_NY.GDP.PCAP.CD_DS2_en_csv_v2_46.csv"
 
     @property
     def migration_path(self) -> Path:
-        return self.datapath / "migration_stock_2018.csv"
+        return self.datapath / "migrations/migration_stock_2018.csv"
 
     @property
     def hdi_path(self) -> Path:
-        return self.datapath / "hdi_2020_clean.csv"
+        return self.datapath / "features/hdi_2020_clean.csv"
 
     @property
     def niche_path(self) -> Path:
