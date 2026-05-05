@@ -12,19 +12,24 @@ WAR_START = pd.Timestamp("2022-03-01")
 
 #------------------------------------------------------------------------------
 
-def filter_flows_by_continent(master_country_df, df, niche_type, continent=None):
-    country_df = master_country_df[["code", "iso3", "country_name", "continent", "lat", "lon", "population", niche_type]].drop_duplicates("code").copy()
+def filter_flows_by_continent(
+        master_country:pd.DataFrame, 
+        flows:pd.DataFrame, 
+        niche_type, 
+        continent: str =None
+        ):
+    country = master_country[["code", "iso3", "country_name", "continent", "lat", "lon", "population", niche_type]].drop_duplicates("code").copy()
 
     if continent is None:
-        df_model = df.copy()
+        flows = flows.copy()
     elif continent == "Americas":
-        allowed_codes = set(country_df[country_df["continent"].isin(["North America", "South America", "Central America"])].values.flatten())
-        df_model = df[df["country_from"].isin(allowed_codes) & df["country_to"].isin(allowed_codes)].copy()
+        allowed_codes = set(country[country["continent"].isin(["North America", "South America", "Central America"])].values.flatten())
+        flows = flows[flows["country_from"].isin(allowed_codes) & flows["country_to"].isin(allowed_codes)].copy()
     else:
-        allowed_codes = set(country_df.loc[country_df["continent"] == continent, "code"])
-        df_model = df[df["country_from"].isin(allowed_codes) & df["country_to"].isin(allowed_codes)].copy()
+        allowed_codes = set(country.loc[country["continent"] == continent, "code"])
+        flows = flows[flows["country_from"].isin(allowed_codes) & flows["country_to"].isin(allowed_codes)].copy()
 
-    return df_model, country_df
+    return flows.reset_index(drop=True), country.reset_index(drop=True)
 
 def split_flows_by_period(df_model, master_country_df):
 

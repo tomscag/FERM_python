@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 from pathlib import Path
 
-from src.ferm.model import FERM
+from src.ferm.model import FERM, RM
 from src.ferm.preprocessing import (
     filter_flows_by_continent, 
     split_flows_by_period,    
@@ -52,15 +52,15 @@ else:
 
 niche_df = load_niche_data(niche_path, niche_type=config.niche_type)
 
-master_country_df = build_master_country_table(
+master_country = build_master_country_table(
     country_geo,
     populations,
     niche_df=niche_df,
     niche_col=config.niche_type
 )
 
-flows_df, country_df = filter_flows_by_continent(
-    master_country_df, 
+flows, country = filter_flows_by_continent(
+    master_country, 
     migrations, 
     niche_type=config.niche_type, 
     continent=config.target_continent
@@ -72,23 +72,32 @@ flows_df, country_df = filter_flows_by_continent(
 #     )
 
 
-country_df = add_niche(country_df, niche_col=config.niche_type, method=config.niche_method)
+country = add_niche(country, niche_col=config.niche_type, method=config.niche_method)
 
 
-nodes = prepare_nodes(country_df, flows_df)
+nodes = prepare_nodes(country, flows)
 
 #%% Run FERM
-model = FERM(
-    config.niche_type,
-    config.niche_method,    
+ferm = FERM(
+    nodes,
+    flows,
      )
 
-res = model.run(
-    nodes = nodes,
+res = ferm.run(
     num_particles = int(1e4),#config.num_particles, 
     sigma = config.sigma, 
     niche_col = "niche", # modify name
     verbose = True)
+
+
+#%% Run RM
+rm = RM(
+        nodes,
+        flows,
+        )
+
+
+res = rm.run()
 
 
 

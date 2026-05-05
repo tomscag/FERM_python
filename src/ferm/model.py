@@ -1,158 +1,678 @@
-# from dataclasses import dataclass
+from __future__ import annotations
+
+from dataclasses import dataclass
+from math import atan2, cos, radians, sin, sqrt
+from typing import Optional
 
 import numpy as np
 import pandas as pd
-# import scipy.sparse as sp
 from scipy import stats
-from math import radians, sin, cos, sqrt, atan2
 
-# from ferm.distance import wrap_geodist
+from src.ferm.utils import code_to_country
 
 
-class FERM:
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+EARTH_RADIUS_KM: float = 6371.0
+DEFAULT_EPS: float = 1.0
+
+
+# ---------------------------------------------------------------------------
+# Validation utilities
+# ---------------------------------------------------------------------------
+
+def validate_nodes(
+    nodes: pd.DataFrame,
+    required_columns: set[str],
+) -> None:
     """
-    Implement the Feature-Enriched Radiation Model (FERM).
-    
-    """    
-              
-    def __init__(
-        self,
-        path_niche_array: str,
-        path_pop: str,
-    ) -> None:
-        """
-        Parameters
-        ----------
-            
-        """ 
+    Validate the node table used by the mobility models.
 
-        self.path_niche_array = path_niche_array
-        self.path_pop = path_pop
+    Parameters
+    ----------
+    nodes : pd.DataFrame
+        Input node table.
+    required_columns : set[str]
+        Columns that MUST be present.
 
-    
-    @staticmethod
-    def build_distance_matrix(nodes):
-        codes = nodes["code"].tolist()
-        D = pd.DataFrame(0.0, index=codes, columns=codes)
-        coord = nodes.set_index("code")[["lat", "lon"]]
-        for i in codes:
-            for j in codes:
-                if i != j:
-                    D.loc[i, j] = haversine_km(coord.loc[i, "lat"], coord.loc[i, "lon"], coord.loc[j, "lat"], coord.loc[j, "lon"])
-        return D
-
-
-    # -------------------------------------------------------------------------
-    # Run FERM - Compute fluxes
-    # -------------------------------------------------------------------------
-        
-    def run(
-            self,
-            nodes:pd.DataFrame, 
-            num_particles:int = 300, 
-            sigma:float = 0.15, 
-            niche_col:str = "niche",
-            verbose: bool = False,            
-            ) -> pd.DataFrame:
-        """
-        Run the FERM model on a node table.
-    
-        Parameters
-        ----------
-        nodes : pd.DataFrame
-            Must contain:
-            - 'code': unique node identifier
-            - 'population': node population
-            - niche_col: niche variable
-        num_particles : int, default=300
-            Number of particles sampled per origin.
-        sigma : float, default=0.15
-            Standard deviation used in Gaussian max sampling.
-        niche_col : str, default='gdp_per_capita_2018'
-            Column used as niche mean.
-        verbose : bool, default=False
-            If True, print current origin code.
-    
-        Returns
-        -------
-        pd.DataFrame
-            origin-destination flux matrix.
-        """
-        
-
-        # Distance matrix
-        D = FERM.build_distance_matrix(nodes)                
-        
-        nodes = nodes.set_index("code")
-
-        populations = nodes["population"].round().clip(lower=1).astype(int)
-        
-        niche = nodes[niche_col].astype(float).fillna(0.0)
-        
-        res = pd.DataFrame(0.0, index=nodes.index, columns=nodes.index)
-        
-        for i in nodes.index:
-            if verbose: print(f"{i}")
-            
-            m_i = populations[i]
-            mu_i = niche[i]
-            absorption_i = gaussian_max_sample_vec(
-                mu=mu_i, 
-                sigma=sigma, 
-                n=m_i, 
-                size=num_particles
-            )
-            
-            dests_sorted = [j for j in D.loc[i].sort_values().index if j != i]
-            assigned = np.zeros(num_particles, dtype=bool)
-            counts = pd.Series(0.0, index=nodes.index)
-            
-            for j in dests_sorted:
-                if assigned.all():
-                    break
-                n_j = populations[j]
-                mu_j = niche[j] 
-                
-                n_remaining = (~assigned).sum()
-                absorbance_j = gaussian_max_sample_vec(
-                    mu=mu_j, 
-                    sigma=sigma, 
-                    n=n_j, 
-                    size=n_remaining
-                    )
-                win_mask_local = absorbance_j > absorption_i[~assigned]
-                if np.any(win_mask_local):
-                    idx_global = np.where(~assigned)[0][win_mask_local]
-                    counts[j] += len(idx_global)
-                    assigned[idx_global] = True
-            if counts.sum() > 0:
-                res.loc[i] = counts / counts.sum()
-        return res
-
-
-
-def gaussian_max_sample_vec(mu, sigma, n, size):
+    Raises
+    ------
+    ValueError
+        If required columns are missing, node codes are duplicated,
+        or the input table is empty.
     """
-    Sample the maximum of n Gaussian samples
-    """
-    # assert isinstance(n,int) and n >= 1
-    n = max(int(n), 1)
-    if sigma < 0:
-        raise ValueError("sigma must be nonnegative")
-    if sigma == 0:
-        return np.full(size, float(mu))
-    u = np.random.random(size=size)
-    q = np.exp(np.log(u) / n)
-    return mu + sigma * stats.norm.ppf(q)
+    if nodes.empty:
+        raise ValueError("`nodes` must not be empty.")
 
-def haversine_km(lat1, lon1, lat2, lon2):
-    R = 6371.0
+    missing = required_columns - set(nodes.columns)
+    if missing:
+        raise ValueError(f"`nodes` is missing required columns: {sorted(missing)}")
+
+    if nodes["code"].isna().any():
+        raise ValueError("`nodes['code']` must not contain missing values.")
+
+    if not nodes["code"].is_unique:
+        duplicated = nodes.loc[nodes["code"].duplicated(), "code"].tolist()
+        raise ValueError(f"`code` values must be unique. Duplicates: {duplicated}")
+
+
+# ---------------------------------------------------------------------------
+# Geometry and sampling utilities
+# ---------------------------------------------------------------------------
+
+def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    Compute the great-circle distance between two coordinates.
+
+    Parameters
+    ----------
+    lat1, lon1 : float
+        Latitude and longitude of the first point, in degrees.
+    lat2, lon2 : float
+        Latitude and longitude of the second point, in degrees.
+
+    Returns
+    -------
+    float
+        Great-circle distance in kilometers.
+    """
     phi1, phi2 = radians(lat1), radians(lat2)
     dphi = radians(lat2 - lat1)
     dlambda = radians(lon2 - lon1)
-    a = sin(dphi / 2.0) ** 2 + cos(phi1) * cos(phi2) * sin(dlambda / 2.0) ** 2
-    return 2 * R * atan2(sqrt(a), sqrt(1 - a))
 
+    a = (
+        sin(dphi / 2.0) ** 2
+        + cos(phi1) * cos(phi2) * sin(dlambda / 2.0) ** 2
+    )
+    return 2.0 * EARTH_RADIUS_KM * atan2(sqrt(a), sqrt(1.0 - a))
+
+
+def build_distance_matrix(nodes: pd.DataFrame) -> pd.DataFrame:
+    """
+    Build the pairwise great-circle distance matrix between nodes.
+
+    Parameters
+    ----------
+    nodes : pd.DataFrame
+        Node table containing at least `code`, `lat`, and `lon`.
+
+    Returns
+    -------
+    pd.DataFrame
+        Square distance matrix indexed and columned by node code.
+    """
+    validate_nodes(nodes, {"code", "lat", "lon"})
+
+    codes = nodes["code"].to_numpy()
+    coords = nodes.set_index("code")[["lat", "lon"]].astype(float)
+
+    lat = np.radians(coords["lat"].to_numpy())
+    lon = np.radians(coords["lon"].to_numpy())
+
+    # These are used to build the N^2 distance pairs in vectorized form
+    lat1 = lat[:, None]
+    lat2 = lat[None, :]
+    lon1 = lon[:, None]
+    lon2 = lon[None, :]
+
+    dphi = lat2 - lat1
+    dlambda = lon2 - lon1
+
+    a = (
+        np.sin(dphi / 2.0) ** 2
+        + np.cos(lat1) * np.cos(lat2) * np.sin(dlambda / 2.0) ** 2
+    )
+    dist = 2.0 * EARTH_RADIUS_KM * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
+
+    np.fill_diagonal(dist, 0.0)
+
+    return pd.DataFrame(dist, index=codes, columns=codes)
+
+
+def gaussian_max_sample_vec(
+    mu: float,
+    sigma: float,
+    n: int,
+    size: int,
+    rng: Optional[np.random.Generator] = None,
+) -> np.ndarray:
+    """
+    Sample the maximum of `n` i.i.d. Gaussian random variables.
+
+    If X_1, ..., X_n ~ N(mu, sigma^2), this function returns `size`
+    samples from max(X_1, ..., X_n) using inverse-transform sampling.
+
+    Parameters
+    ----------
+    mu : float
+        Mean of the Gaussian distribution.
+    sigma : float
+        Standard deviation of the Gaussian distribution. Must be non-negative.
+    n : int
+        Number of Gaussian draws whose maximum is considered. Values < 1
+        are clipped to 1.
+    size : int
+        Number of samples to generate.
+    rng : np.random.Generator, optional
+        Random number generator for reproducibility.
+
+    Returns
+    -------
+    np.ndarray
+        Array of shape `(size,)` containing samples of the maximum.
+
+    Raises
+    ------
+    ValueError
+        If `sigma < 0` or `size < 0`.
+    """
+    if sigma < 0:
+        raise ValueError("`sigma` must be non-negative.")
+    if size < 0:
+        raise ValueError("`size` must be non-negative.")
+
+    n = max(int(n), 1)
+
+    if sigma == 0:
+        return np.full(size, float(mu), dtype=float)
+
+    if rng is None:
+        rng = np.random.default_rng()
+
+    u = rng.random(size=size)
+    q = np.exp(np.log(u) / n)  # equivalent to u ** (1 / n)
+    return mu + sigma * stats.norm.ppf(q)
+
+
+# ---------------------------------------------------------------------------
+# Output containers
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class RadiationRunResult:
+    """
+    Container for the output of the Models.
+    """
+    distance_matrix: pd.DataFrame    
+    probability_matrix: pd.DataFrame
+    comparison: pd.DataFrame
+    intervening_population_matrix: Optional[pd.DataFrame] = None
+
+
+# ---------------------------------------------------------------------------
+# Feature-Enriched Radiation Model
+# ---------------------------------------------------------------------------
+
+class FERM:
+    """
+    Feature-Enriched Radiation Model (FERM).
+
+    This implementation estimates row-wise destination choice probabilities
+    through Monte Carlo sampling. For each origin i, a fixed number of particles
+    is generated, each endowed with an origin-specific absorption threshold.
+    Destinations are then scanned in order of increasing distance, and a particle
+    is absorbed by the first destination whose sampled attractiveness exceeds
+    the particle threshold.
+
+    Notes
+    -----
+    The returned matrix is row-normalized and should be interpreted as an
+    estimated origin-destination probability matrix rather than absolute flows.
+    """
+
+    def __init__(self, nodes: pd.DataFrame, flows: pd.DataFrame) -> None:
+        """
+        Parameters
+        ----------
+        nodes : pd.DataFrame
+            Node table containing at least:
+            - `code` : unique node identifier
+            - `population` : node population
+            - `lat` : latitude in degrees
+            - `lon` : longitude in degrees
+        flows : pd.DataFrame
+            Observed flows
+        """
+        validate_nodes(nodes, {"code", "population", "lat", "lon"})
+        self.nodes: pd.DataFrame = nodes.copy()
+        self.flows = flows
+        self._distance_matrix: Optional[pd.DataFrame] = None
+
+    @property
+    def distance_matrix(self) -> pd.DataFrame:
+        """
+        Pairwise distance matrix, computed lazily and cached.
+        """
+        if self._distance_matrix is None:
+            self._distance_matrix = build_distance_matrix(self.nodes)
+        return self._distance_matrix
+
+    def run(
+        self,
+        num_particles: int = 300,
+        sigma: float = 0.15,
+        niche_col: str = "niche",
+        verbose: bool = False,
+        rng: Optional[np.random.Generator] = None,
+    ) -> pd.DataFrame:
+        """
+        Estimate the FERM origin-destination probability matrix.
+
+        Parameters
+        ----------
+        num_particles : int, default=300
+            Number of Monte Carlo particles sampled per origin.
+        sigma : float, default=0.15
+            Standard deviation of the Gaussian sampling kernel.
+        niche_col : str, default='niche'
+            Column in `nodes` used as the mean niche/attractiveness value.
+        verbose : bool, default=False
+            If True, print the current origin code while processing.
+        rng : np.random.Generator, optional
+            Random number generator for reproducibility.
+
+        Returns
+        -------
+        pd.DataFrame
+            Origin-destination probability matrix.
+        """
+        if niche_col not in self.nodes.columns:
+            raise ValueError(f"Column `{niche_col}` not found in `nodes`.")
+
+        if num_particles <= 0:
+            raise ValueError("`num_particles` must be strictly positive.")
+
+        if rng is None:
+            rng = np.random.default_rng()
+
+        nodes = self.nodes.set_index("code")
+        populations = nodes["population"].round().clip(lower=1).astype(int)
+        niche = nodes[niche_col].astype(float).fillna(0.0)
+        D = self.distance_matrix
+
+        probabilities = pd.DataFrame(0.0, index=nodes.index, columns=nodes.index)
+
+        for origin in nodes.index:
+            if verbose:
+                print(origin)
+
+            origin_population = populations[origin]
+            origin_niche = niche[origin]
+
+            origin_thresholds = gaussian_max_sample_vec(
+                mu=origin_niche,
+                sigma=sigma,
+                n=origin_population,
+                size=num_particles,
+                rng=rng,
+            )
+
+            destinations = [d for d in D.loc[origin].sort_values().index if d != origin]
+
+            assigned = np.zeros(num_particles, dtype=bool)
+            counts = pd.Series(0.0, index=nodes.index)
+
+            for destination in destinations:
+                if assigned.all():
+                    break
+
+                destination_population = populations[destination]
+                destination_niche = niche[destination]
+
+                remaining = (~assigned).sum()
+
+                destination_attractiveness = gaussian_max_sample_vec(
+                    mu=destination_niche,
+                    sigma=sigma,
+                    n=destination_population,
+                    size=remaining,
+                    rng=rng,
+                )
+
+                winners_local = (
+                    destination_attractiveness > origin_thresholds[~assigned]
+                )
+
+                if np.any(winners_local):
+                    winners_global = np.where(~assigned)[0][winners_local]
+                    counts[destination] += len(winners_global)
+                    assigned[winners_global] = True
+
+            total_assigned = counts.sum()
+            if total_assigned > 0:
+                probabilities.loc[origin] = counts / total_assigned
+
+        comparison = predicted_flows_from_probabilities(
+            self.flows, 
+            probabilities, 
+            nodes=nodes
+            )
+
+        return RadiationRunResult(
+            distance_matrix=D,
+            probability_matrix=probabilities,
+            comparison=comparison,
+        )
+
+
+
+# ---------------------------------------------------------------------------
+# Classical Radiation Model
+# ---------------------------------------------------------------------------
+
+class RM:
+    """
+    Classical Radiation Model (RM).
+
+    The model predicts destination choice probabilities from node populations
+    and intervening opportunities. For origin i and destination j, the
+    unnormalized probability is proportional to:
+
+        m_i * n_j / [(m_i + s_ij) * (m_i + n_j + s_ij)]
+
+    where:
+    - m_i is the origin population,
+    - n_j is the destination population,
+    - s_ij is the total population within radius d_ij from origin i,
+      excluding i and j.
+    """
+
+    def __init__(self,
+                 nodes: pd.DataFrame, flows: pd.DataFrame,
+                 eps: float = DEFAULT_EPS) -> None:
+        """
+        Parameters
+        ----------
+        nodes : pd.DataFrame
+            Node table containing at least:
+            - `code`
+            - `population`
+            - `lat`
+            - `lon`
+        flows : pd.DataFrame
+            Observed flows
+        eps : float, default=1.0
+            Small constant used in logarithmic error diagnostics.
+        """
+        validate_nodes(nodes, {"code", "population", "lat", "lon"})
+        self.nodes: pd.DataFrame = nodes.copy()
+        self.flows: pd.DataFrame = flows.copy()
+        self.eps: float = float(eps)
+        self._distance_matrix: Optional[pd.DataFrame] = None
+
+    @property
+    def distance_matrix(self) -> pd.DataFrame:
+        """
+        Pairwise distance matrix, computed lazily and cached.
+        """
+        if self._distance_matrix is None:
+            self._distance_matrix = build_distance_matrix(self.nodes)
+        return self._distance_matrix
+
+    @staticmethod
+    def build_intervening_population_matrix(
+        nodes: pd.DataFrame,
+        distance_matrix: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        Compute the intervening-population matrix S.
+
+        For each pair (i, j), S[i, j] is the total population of all nodes k
+        such that d(i, k) < d(i, j), excluding i and j.
+
+        Parameters
+        ----------
+        nodes : pd.DataFrame
+            Node table with columns `code` and `population`.
+        distance_matrix : pd.DataFrame
+            Pairwise distance matrix indexed by node code.
+
+        Returns
+        -------
+        pd.DataFrame
+            Intervening-population matrix.
+        """
+        validate_nodes(nodes, {"code", "population"})
+
+        codes = nodes["code"].tolist()
+        populations = nodes.set_index("code")["population"].astype(float)
+        S = pd.DataFrame(0.0, index=codes, columns=codes)
+
+        for origin in codes:
+            d_origin = distance_matrix.loc[origin]
+
+            for destination in codes:
+                if origin == destination:
+                    continue
+
+                dij = d_origin[destination]
+                mask = d_origin < dij
+                mask.loc[origin] = False
+                mask.loc[destination] = False
+
+                S.loc[origin, destination] = populations.loc[mask.index[mask]].sum()
+
+        return S
+
+    @staticmethod
+    def radiation_probabilities(
+        nodes: pd.DataFrame,
+        intervening_population_matrix: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        Compute the row-wise destination probabilities of the radiation model.
+
+        Parameters
+        ----------
+        nodes : pd.DataFrame
+            Node table with columns `code` and `population`.
+        intervening_population_matrix : pd.DataFrame
+            Matrix S of intervening populations.
+
+        Returns
+        -------
+        pd.DataFrame
+            Probability matrix.
+        """
+        validate_nodes(nodes, {"code", "population"})
+
+        populations = nodes.set_index("code")["population"].astype(float)
+        codes = nodes["code"].tolist()
+
+        P = pd.DataFrame(0.0, index=codes, columns=codes)
+
+        for origin in codes:
+            m_i = populations[origin]
+            s_i = intervening_population_matrix.loc[origin]
+
+            numerator = m_i * populations
+            denominator = (m_i + s_i) * (m_i + populations + s_i)
+
+            p_i = numerator / denominator.replace(0.0, np.nan)
+            p_i.loc[origin] = 0.0
+            p_i = p_i.fillna(0.0)
+
+            row_sum = p_i.sum()
+            if row_sum > 0:
+                p_i = p_i / row_sum
+
+            P.loc[origin] = p_i
+
+        return P
+
+    def run(
+        self,
+        renormalize: bool = True,
+        origin_col: str = "country_from",
+        dest_col: str = "country_to",
+        flow_col: str = "num_migrants",
+        pred_col: str = "predicted_migrants",
+    ) -> RadiationRunResult:
+        """
+        Run the classical radiation model.
+
+        Parameters
+        ----------
+        renormalize : bool, default=True
+            If True, enforce row-wise normalization of the probability matrix.
+        origin_col, dest_col, flow_col, pred_col : str
+            Column names used when `flows` is provided.
+
+        Returns
+        -------
+        RadiationRunResult
+            Container with distance matrix, intervening-population matrix,
+            probability matrix, and optional comparison table.
+        """
+        D = self.distance_matrix
+        S = self.build_intervening_population_matrix(self.nodes, D)
+        P = self.radiation_probabilities(self.nodes, S)
+
+        if renormalize:
+            P = P.div(P.sum(axis=1).replace(0.0, np.nan), axis=0).fillna(0.0)
+
+        comparison = None
+        if self.flows is not None:
+            comparison = predicted_flows_from_probabilities(
+                flows=self.flows,
+                P=P,
+                nodes=self.nodes,
+                origin_col=origin_col,
+                dest_col=dest_col,
+                flow_col=flow_col,
+                pred_col=pred_col,
+                eps=self.eps,
+            )
+
+        return RadiationRunResult(
+            distance_matrix=D,
+            probability_matrix=P,
+            comparison=comparison,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Prediction and diagnostics
+# ---------------------------------------------------------------------------
+
+def add_error_columns(
+    comparison: pd.DataFrame,
+    observed_col: str = "num_migrants",
+    predicted_col: str = "predicted_migrants",
+    eps: float = DEFAULT_EPS,
+) -> pd.DataFrame:
+    """
+    Add residual and logarithmic error diagnostics to a comparison table.
+
+    Parameters
+    ----------
+    comparison : pd.DataFrame
+        Table containing observed and predicted flow columns.
+    observed_col : str, default='num_migrants'
+        Name of the observed-flow column.
+    predicted_col : str, default='predicted_migrants'
+        Name of the predicted-flow column.
+    eps : float, default=1.0
+        Small additive constant used to stabilize logarithms.
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of the input table with additional error columns.
+    """
+    out = comparison.copy()
+
+    residual = out[predicted_col] - out[observed_col]
+
+    out["residual"] = residual
+    out["signed_error"] = residual
+    out["abs_error"] = np.abs(residual)
+    out["log_observed"] = np.log10(out[observed_col] + eps)
+    out["log_predicted"] = np.log10(out[predicted_col] + eps)
+    out["log_ratio"] = np.log10(
+        (out[predicted_col] + eps) / (out[observed_col] + eps)
+    )
+    out["abs_log_ratio"] = np.abs(out["log_ratio"])
+
+    return out
+
+
+def predicted_flows_from_probabilities(
+    flows: pd.DataFrame,
+    P: pd.DataFrame,
+    nodes: Optional[pd.DataFrame] = None,
+    origin_col: str = "country_from",
+    dest_col: str = "country_to",
+    flow_col: str = "num_migrants",
+    pred_col: str = "predicted_migrants",
+    eps: float = DEFAULT_EPS,
+) -> pd.DataFrame:
+    """
+    Convert a probability matrix into predicted flows by matching
+    observed total outflows per origin.
+
+    Parameters
+    ----------
+    flows : pd.DataFrame
+        Observed origin-destination flow table.
+    P : pd.DataFrame
+        Origin-destination probability matrix.
+    nodes : pd.DataFrame, optional
+        Node metadata used to map codes to country names.
+    origin_col, dest_col, flow_col, pred_col : str
+        Column names in the input/output tables.
+    eps : float, default=1.0
+        Small constant used in logarithmic error diagnostics.
+
+    Returns
+    -------
+    pd.DataFrame
+        Comparison table containing observed and predicted flows and
+        error diagnostics.
+    """
+    outflow = flows.groupby(origin_col)[flow_col].sum()
+    total_outflow = outflow.reindex(P.index).fillna(0.0).to_numpy()
+
+    predicted_matrix = total_outflow[:, None] * P.to_numpy()
+
+    predicted = pd.DataFrame(predicted_matrix, index=P.index, columns=P.columns)
+    predicted.index.name = origin_col
+    predicted.columns.name = dest_col
+
+    predicted = predicted.stack().reset_index(name=pred_col)
+    predicted = predicted[predicted[origin_col] != predicted[dest_col]].copy()
+
+    comparison = flows.merge(predicted, on=[origin_col, dest_col], how="outer")
+
+    if nodes is not None and {"code", "country_name"}.issubset(nodes.columns):
+        name_map = nodes.set_index("code")["country_name"].to_dict()
+        comparison["country_from_name"] = (
+            comparison[origin_col]
+            .map(name_map)
+            .fillna(comparison[origin_col].map(code_to_country))
+        )
+        comparison["country_to_name"] = (
+            comparison[dest_col]
+            .map(name_map)
+            .fillna(comparison[dest_col].map(code_to_country))
+        )
+    else:
+        comparison["country_from_name"] = comparison[origin_col].map(code_to_country)
+        comparison["country_to_name"] = comparison[dest_col].map(code_to_country)
+
+    comparison[flow_col] = comparison[flow_col].fillna(0.0)
+    comparison[pred_col] = comparison[pred_col].fillna(0.0)
+
+    comparison = add_error_columns(
+        comparison=comparison,
+        observed_col=flow_col,
+        predicted_col=pred_col,
+        eps=eps,
+    )
+
+    return comparison
 
 
 
