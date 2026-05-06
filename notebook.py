@@ -91,20 +91,20 @@ res = ferm.run(
     num_particles = int(1e4),
     sigma = config.sigma, 
     niche_col = "niche", 
-    verbose = True)
+    verbose = False)
 
 rm = RM(
         nodes,
         flows,
         )
 
-res = rm.run()
+res_rm = rm.run()
 
 
 #%% Analysis periods 
 from src.ferm.plotting import plot_rm_vs_ferm_error_scatter, plot_timeseries_migrants
 
-only_label="test_2019_h2"
+only_label="precovid"
 
 comparisons_radiation = {}
 comparisons_ferm = {}
@@ -137,7 +137,7 @@ for label, flows_partial in pair_lookup.items():
     
     ferm = FERM(
         nodes=nodes_rm,
-        flows=flows,
+        flows=flows_partial,
     )
 
     results = ferm.run(
