@@ -54,9 +54,9 @@ def prepare_nodes(country_df, flows_df) -> pd.DataFrame:
     Extract nodes
     """
     used_codes = sorted(set(flows_df["country_from"]).union(set(flows_df["country_to"])))
-    nodes = country_df[country_df["code"].isin(used_codes)].drop_duplicates("code").copy()
-    ensure_columns(nodes, ["code", "country_name", "lat", "lon", "population"], "nodes metadata")
-    missing_codes = sorted(set(used_codes) - set(nodes["code"]))
+    nodes = country_df[country_df["iso3"].isin(used_codes)].drop_duplicates("iso3").copy()
+    ensure_columns(nodes, ["iso3", "country_name", "lat", "lon", "population"], "nodes metadata")
+    missing_codes = sorted(set(used_codes) - set(nodes["iso3"]))
     if missing_codes:
         print(f"Warning: missing metadata for these countries: {missing_codes}")
     return nodes

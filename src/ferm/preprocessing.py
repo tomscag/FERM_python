@@ -26,7 +26,7 @@ def filter_flows_by_continent(
         allowed_codes = set(country[country["continent"].isin(["North America", "South America", "Central America"])].values.flatten())
         flows = flows[flows["country_from"].isin(allowed_codes) & flows["country_to"].isin(allowed_codes)].copy()
     else:
-        allowed_codes = set(country.loc[country["continent"] == continent, "code"])
+        allowed_codes = set(country.loc[country["continent"] == continent, "iso3"])
         flows = flows[flows["country_from"].isin(allowed_codes) & flows["country_to"].isin(allowed_codes)].copy()
 
     return flows.reset_index(drop=True), country.reset_index(drop=True)

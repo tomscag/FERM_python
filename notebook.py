@@ -21,7 +21,7 @@ from src.ferm.config import Config
 
 import pandas as pd
 import numpy as np
-def create_feature_matrix(niche_path):
+def create_feature_matrix(niche_path, normalize=True):
     
     niche = load_niche_data(niche_path, niche_type="gdp_per_capita_2018")
     niche.set_index(keys='iso3', inplace=True)
@@ -29,12 +29,12 @@ def create_feature_matrix(niche_path):
     origin = niche['gdp_per_capita_2018'].to_numpy()[:, None]
     destination = niche['gdp_per_capita_2018'].to_numpy()[None, :]
     
-    # diff = origin - destination
-    
-    # Normalization (zscore log)
-    diff = np.log1p(origin) - np.log1p(destination)
-    diff = (diff - np.nanmean(diff))/np.nanstd(diff)
-
+    if normalize:
+        # Normalization (zscore log)
+        diff = np.log1p(origin) - np.log1p(destination)
+        diff = (diff - np.nanmean(diff))/np.nanstd(diff)
+    else:
+        diff = origin - destination
     df = pd.DataFrame(
             data = diff,
             index = niche.index,
@@ -43,6 +43,17 @@ def create_feature_matrix(niche_path):
     return df
     
 
+def load_stock_matrix(stock_path, normalize:True) -> pd.DataFrame:
+    
+    df = pd.read_csv(config.stock_path, index_col=0)
+    
+    if normalize:
+        data = df.to_numpy()
+        pass
+    
+    
+    return df
+    
 
 
 #%% Data preparation

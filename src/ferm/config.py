@@ -18,7 +18,11 @@ class Config:
     @property
     def flow_path(self) -> Path:
         return self.datapath / "migrations/international_migration_flow.csv"
-
+    
+    @property
+    def stock_path(self) -> Path:
+        return self.datapath / "migrations/migrations_abel_stocks_2005_2010.csv"
+    
     @property
     def gdp_path(self) -> Path:
         return self.datapath / "features/API_NY.GDP.PCAP.CD_DS2_en_csv_v2_46.csv"
