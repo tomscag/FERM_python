@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrowPatch
 
+plt.rcParams["figure.figsize"] = (9, 5)
+plt.rcParams["axes.grid"] = True
+plt.rcParams["font.size"] = 11
+
 EPS: float = 1.0
 
 def summarize_comparison(comp, label):

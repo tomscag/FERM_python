@@ -8,7 +8,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from src.ferm.utils import code_to_country
+from src.ferm.utils import iso3_to_country
+import country_converter as coco # To pass from ISO2 to ISO3
 
 
 # ---------------------------------------------------------------------------
@@ -103,10 +104,10 @@ def build_distance_matrix(nodes: pd.DataFrame) -> pd.DataFrame:
     pd.DataFrame
         Square distance matrix indexed and columned by node code.
     """
-    validate_nodes(nodes, {"code", "lat", "lon"})
+    validate_nodes(nodes, {"iso3", "lat", "lon"})
 
-    codes = nodes["code"].to_numpy()
-    coords = nodes.set_index("code")[["lat", "lon"]].astype(float)
+    codes = nodes["iso3"].to_numpy()
+    coords = nodes.set_index("iso3")[["lat", "lon"]].astype(float)
 
     lat = np.radians(coords["lat"].to_numpy())
     lon = np.radians(coords["lon"].to_numpy())
@@ -222,7 +223,7 @@ class FERM:
     estimated origin-destination probability matrix rather than absolute flows.
     """
 
-    def __init__(self, nodes: pd.DataFrame, flows: pd.DataFrame) -> None:
+    def __init__(self, nodes: pd.DataFrame, flows: pd.DataFrame, features:pd.DataFrame) -> None:
         """
         Parameters
         ----------
@@ -234,10 +235,13 @@ class FERM:
             - `lon` : longitude in degrees
         flows : pd.DataFrame
             Observed flows
+        features : pd.Dataframe
+            Relational features 
         """
         validate_nodes(nodes, {"code", "population", "lat", "lon"})
         self.nodes: pd.DataFrame = nodes.copy()
         self.flows = flows
+        self.features = features
         self._distance_matrix: Optional[pd.DataFrame] = None
 
     @property
@@ -287,7 +291,7 @@ class FERM:
         if rng is None:
             rng = np.random.default_rng()
 
-        nodes = self.nodes.set_index("code")
+        nodes = self.nodes.set_index("iso3")
         populations = nodes["population"].round().clip(lower=1).astype(int)
         niche = nodes[niche_col].astype(float).fillna(0.0)
         D = self.distance_matrix
@@ -299,10 +303,10 @@ class FERM:
                 print(origin)
 
             origin_population = populations[origin]
-            origin_niche = niche[origin]
+            # origin_niche = niche[origin]
 
             origin_thresholds = gaussian_max_sample_vec(
-                mu=origin_niche,
+                mu=0.0,
                 sigma=sigma,
                 n=origin_population,
                 size=num_particles,
@@ -319,12 +323,12 @@ class FERM:
                     break
 
                 destination_population = populations[destination]
-                destination_niche = niche[destination]
+                # destination_niche = niche[destination]
 
                 remaining = (~assigned).sum()
 
                 destination_attractiveness = gaussian_max_sample_vec(
-                    mu=destination_niche,
+                    mu=self.features.loc[destination, origin],
                     sigma=sigma,
                     n=destination_population,
                     size=remaining,
@@ -436,8 +440,8 @@ class RM:
         """
         validate_nodes(nodes, {"code", "population"})
 
-        codes = nodes["code"].tolist()
-        populations = nodes.set_index("code")["population"].astype(float)
+        codes = nodes["iso3"].tolist()
+        populations = nodes.set_index("iso3")["population"].astype(float)
         S = pd.DataFrame(0.0, index=codes, columns=codes)
 
         for origin in codes:
@@ -476,10 +480,10 @@ class RM:
         pd.DataFrame
             Probability matrix.
         """
-        validate_nodes(nodes, {"code", "population"})
+        validate_nodes(nodes, {"iso3", "population"})
 
-        populations = nodes.set_index("code")["population"].astype(float)
-        codes = nodes["code"].tolist()
+        populations = nodes.set_index("iso3")["population"].astype(float)
+        codes = nodes["iso3"].tolist()
 
         P = pd.DataFrame(0.0, index=codes, columns=codes)
 
@@ -633,6 +637,8 @@ def predicted_flows_from_probabilities(
         error diagnostics.
     """
     outflow = flows.groupby(origin_col)[flow_col].sum()
+    outflow.index = coco.convert(names=outflow.index, to="ISO3")
+    
     total_outflow = outflow.reindex(P.index).fillna(0.0).to_numpy()
 
     predicted_matrix = total_outflow[:, None] * P.to_numpy()
@@ -646,21 +652,21 @@ def predicted_flows_from_probabilities(
 
     comparison = flows.merge(predicted, on=[origin_col, dest_col], how="outer")
 
-    if nodes is not None and {"code", "country_name"}.issubset(nodes.columns):
-        name_map = nodes.set_index("code")["country_name"].to_dict()
+    if nodes is not None and {"iso3", "country_name"}.issubset(nodes.columns):
+        name_map = nodes.set_index("iso3")["country_name"].to_dict()
         comparison["country_from_name"] = (
             comparison[origin_col]
             .map(name_map)
-            .fillna(comparison[origin_col].map(code_to_country))
+            .fillna(comparison[origin_col].map(iso3_to_country))
         )
         comparison["country_to_name"] = (
             comparison[dest_col]
             .map(name_map)
-            .fillna(comparison[dest_col].map(code_to_country))
+            .fillna(comparison[dest_col].map(iso3_to_country))
         )
     else:
-        comparison["country_from_name"] = comparison[origin_col].map(code_to_country)
-        comparison["country_to_name"] = comparison[dest_col].map(code_to_country)
+        comparison["country_from_name"] = comparison[origin_col].map(iso3_to_country)
+        comparison["country_to_name"] = comparison[dest_col].map(iso3_to_country)
 
     comparison[flow_col] = comparison[flow_col].fillna(0.0)
     comparison[pred_col] = comparison[pred_col].fillna(0.0)

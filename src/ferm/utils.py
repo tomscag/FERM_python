@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import pycountry
+import country_converter as coco # To pass from ISO2 to ISO3
 
 from scipy import stats
 
@@ -70,6 +71,8 @@ def ensure_columns(df, required, df_name="DataFrame"):
 def code_to_country(code):
     return {"XK": "Kosovo", "TW": "Taiwan"}.get(code, code)
 
+def iso3_to_country(iso3):
+    return {"XKX": "Kosovo", "TWN": "Taiwan"}.get(iso3, iso3)
 
 def load_country_geometries_global():    
 
@@ -310,6 +313,25 @@ def add_niche(country_df, niche_col="gdp_per_capita_2018", method="log_minmax"):
         raise ValueError("unknown method")
 
     return out
+
+
+
+def iso2_to_iso3(code: str) -> str:
+    if code is None:
+        raise ValueError("Country code is None")
+
+    if not isinstance(code, str):
+        # raise TypeError(f"Country code {code} must be a string, got {type(code).__name__}")
+        return code
+
+    code = code.strip().upper()
+
+    if len(code) != 2:
+        raise ValueError(f"Country code must have length 2, got {code!r}")
+
+    return coco.convert(names=code, to='ISO3')
+
+
 
 # def plot_population_vs_niche(country_df, pop_col="population", niche_col="niche", label_col="country_name"):
 #     df = country_df.copy()

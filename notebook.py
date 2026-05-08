@@ -13,9 +13,36 @@ from src.ferm.utils import (
     load_niche_data,
     build_master_country_table,
     add_niche,
-    prepare_nodes
+    prepare_nodes,
+    iso2_to_iso3,
     )
 from src.ferm.config import Config
+
+
+import pandas as pd
+import numpy as np
+def create_feature_matrix(niche_path):
+    
+    niche = load_niche_data(niche_path, niche_type="gdp_per_capita_2018")
+    niche.set_index(keys='iso3', inplace=True)
+
+    origin = niche['gdp_per_capita_2018'].to_numpy()[:, None]
+    destination = niche['gdp_per_capita_2018'].to_numpy()[None, :]
+    
+    # diff = origin - destination
+    
+    # Normalization (zscore log)
+    diff = np.log1p(origin) - np.log1p(destination)
+    diff = (diff - np.nanmean(diff))/np.nanstd(diff)
+
+    df = pd.DataFrame(
+            data = diff,
+            index = niche.index,
+            columns = niche.index
+        )    
+    return df
+    
+
 
 
 #%% Data preparation
@@ -81,15 +108,20 @@ country = add_niche(
 
 nodes = prepare_nodes(country, flows)
 
+nodes  = nodes.drop(nodes[nodes['iso3'] == 'TWN'].index)
 #%% Test 
+
+features = create_feature_matrix(config.niche_path)
+
 ferm = FERM(
     nodes,
     flows,
+    features,
      )
 
 res = ferm.run(
     num_particles = int(1e4),
-    sigma = config.sigma, 
+    sigma = 5.0, 
     niche_col = "niche", 
     verbose = False)
 
@@ -120,6 +152,7 @@ for label, flows_partial in pair_lookup.items():
     print(f"Computing period: {label}")
     
     nodes_rm = prepare_nodes(country, flows_partial)
+    nodes_rm  = nodes_rm.drop(nodes_rm[nodes_rm['iso3'] == 'TWN'].index)
     
     rm = RM(
         nodes=nodes_rm,
@@ -138,6 +171,7 @@ for label, flows_partial in pair_lookup.items():
     ferm = FERM(
         nodes=nodes_rm,
         flows=flows_partial,
+        features=features
     )
 
     results = ferm.run(
