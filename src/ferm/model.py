@@ -6,10 +6,10 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import pycountry
 from scipy import stats
 
 from src.ferm.utils import iso3_to_country
-import country_converter as coco # To pass from ISO2 to ISO3
 
 
 # ---------------------------------------------------------------------------
@@ -18,6 +18,30 @@ import country_converter as coco # To pass from ISO2 to ISO3
 
 EARTH_RADIUS_KM: float = 6371.0
 DEFAULT_EPS: float = 1.0
+
+
+def normalize_country_code_to_iso3(code: object) -> object:
+    """
+    Normalize ISO2/ISO3-like country codes to ISO3 when possible.
+    """
+    if pd.isna(code):
+        return code
+
+    value = str(code).strip().upper()
+
+    if len(value) == 3:
+        return value
+
+    if len(value) == 2:
+        try:
+            return pycountry.countries.lookup(value).alpha_3
+        except LookupError:
+            return value
+
+    try:
+        return pycountry.countries.lookup(value).alpha_3
+    except LookupError:
+        return value
 
 
 # ---------------------------------------------------------------------------
@@ -691,7 +715,7 @@ def predicted_flows_from_probabilities(
         error diagnostics.
     """
     outflow = flows.groupby(origin_col)[flow_col].sum()
-    outflow.index = coco.convert(names=outflow.index, to="ISO3")
+    outflow.index = outflow.index.map(normalize_country_code_to_iso3)
     
     total_outflow = outflow.reindex(P.index).fillna(0.0).to_numpy()
 
@@ -733,5 +757,3 @@ def predicted_flows_from_probabilities(
     )
 
     return comparison
-
-

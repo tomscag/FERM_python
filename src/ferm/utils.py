@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import pycountry
-import country_converter as coco # To pass from ISO2 to ISO3
 
 from scipy import stats
 
@@ -329,7 +328,10 @@ def iso2_to_iso3(code: str) -> str:
     if len(code) != 2:
         raise ValueError(f"Country code must have length 2, got {code!r}")
 
-    return coco.convert(names=code, to='ISO3')
+    try:
+        return pycountry.countries.lookup(code).alpha_3
+    except LookupError as exc:
+        raise ValueError(f"Unknown ISO2 country code: {code!r}") from exc
 
 
 
@@ -350,6 +352,5 @@ def iso2_to_iso3(code: str) -> str:
 
 #     plt.tight_layout()
 #     plt.show()
-
 
 
