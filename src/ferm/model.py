@@ -211,11 +211,17 @@ class FERM:
     Feature-Enriched Radiation Model (FERM).
 
     This implementation estimates row-wise destination choice probabilities
-    through Monte Carlo sampling. For each origin i, a fixed number of particles
-    is generated, each endowed with an origin-specific absorption threshold.
-    Destinations are then scanned in order of increasing distance, and a particle
-    is absorbed by the first destination whose sampled attractiveness exceeds
-    the particle threshold.
+    through Monte Carlo sampling. It follows the matrix formulation in which
+    an attractiveness matrix Sigma centers both sides of the latent Gaussian
+    sampling process:
+
+    - Sigma[i, i] centers the threshold distribution for origin i.
+    - Sigma[i, j] centers the offer distribution for corridor i -> j.
+
+    For each origin i, a fixed number of particles is generated, each endowed
+    with an origin-specific absorption threshold. Destinations are then scanned
+    in order of increasing distance, and a particle is absorbed by the first
+    destination whose sampled attractiveness exceeds the particle threshold.
 
     Notes
     -----
@@ -223,7 +229,12 @@ class FERM:
     estimated origin-destination probability matrix rather than absolute flows.
     """
 
-    def __init__(self, nodes: pd.DataFrame, flows: pd.DataFrame, features:pd.DataFrame) -> None:
+    def __init__(
+        self,
+        nodes: pd.DataFrame,
+        flows: pd.DataFrame,
+        features: pd.DataFrame | np.ndarray,
+    ) -> None:
         """
         Parameters
         ----------
@@ -235,14 +246,55 @@ class FERM:
             - `lon` : longitude in degrees
         flows : pd.DataFrame
             Observed flows
-        features : pd.Dataframe
-            Relational features 
+        features : pd.DataFrame or np.ndarray
+            Square attractiveness matrix Sigma. Rows are origins and columns
+            are destinations. The index/columns must match `nodes['iso3']` if
+            a DataFrame is provided. If a NumPy array is provided, it is assumed
+            to be ordered like `nodes['iso3']`.
         """
-        validate_nodes(nodes, {"code", "population", "lat", "lon"})
+        validate_nodes(nodes, {"code", "iso3", "population", "lat", "lon"})
         self.nodes: pd.DataFrame = nodes.copy()
         self.flows = flows
-        self.features = features
+        self.features = self._prepare_attractiveness_matrix(features)
         self._distance_matrix: Optional[pd.DataFrame] = None
+
+    def _prepare_attractiveness_matrix(
+        self,
+        features: pd.DataFrame | np.ndarray,
+    ) -> pd.DataFrame:
+        """
+        Validate and align the Sigma attractiveness matrix.
+        """
+        codes = self.nodes["iso3"].tolist()
+
+        if isinstance(features, pd.DataFrame):
+            missing_rows = set(codes) - set(features.index)
+            missing_cols = set(codes) - set(features.columns)
+            if missing_rows or missing_cols:
+                raise ValueError(
+                    "`features` must contain all node ISO3 codes as both rows "
+                    f"and columns. Missing rows: {sorted(missing_rows)}; "
+                    f"missing columns: {sorted(missing_cols)}"
+                )
+            sigma = features.loc[codes, codes].astype(float).copy()
+        else:
+            values = np.asarray(features, dtype=float)
+            expected_shape = (len(codes), len(codes))
+            if values.shape != expected_shape:
+                raise ValueError(
+                    "`features` must be a square matrix with shape "
+                    f"{expected_shape}; got {values.shape}."
+                )
+            sigma = pd.DataFrame(values, index=codes, columns=codes)
+
+        if sigma.isna().any().any():
+            raise ValueError(
+                "`features` contains missing values. Missing values imply a "
+                "substantive modeling choice, so fill or impute them before "
+                "running FERM."
+            )
+
+        return sigma
 
     @property
     def distance_matrix(self) -> pd.DataFrame:
@@ -257,7 +309,7 @@ class FERM:
         self,
         num_particles: int = 300,
         sigma: float = 0.15,
-        niche_col: str = "niche",
+        niche_col: Optional[str] = None,
         verbose: bool = False,
         rng: Optional[np.random.Generator] = None,
     ) -> pd.DataFrame:
@@ -269,9 +321,11 @@ class FERM:
         num_particles : int, default=300
             Number of Monte Carlo particles sampled per origin.
         sigma : float, default=0.15
-            Standard deviation of the Gaussian sampling kernel.
-        niche_col : str, default='niche'
-            Column in `nodes` used as the mean niche/attractiveness value.
+            Shared standard deviation of the Gaussian sampling kernel used for
+            both thresholds and offers.
+        niche_col : str, optional
+            Deprecated compatibility argument. The FERM centering parameters
+            are taken from the `features`/Sigma matrix.
         verbose : bool, default=False
             If True, print the current origin code while processing.
         rng : np.random.Generator, optional
@@ -282,18 +336,18 @@ class FERM:
         pd.DataFrame
             Origin-destination probability matrix.
         """
-        if niche_col not in self.nodes.columns:
-            raise ValueError(f"Column `{niche_col}` not found in `nodes`.")
-
         if num_particles <= 0:
             raise ValueError("`num_particles` must be strictly positive.")
+
+        if sigma < 0:
+            raise ValueError("`sigma` must be non-negative.")
 
         if rng is None:
             rng = np.random.default_rng()
 
         nodes = self.nodes.set_index("iso3")
         populations = nodes["population"].round().clip(lower=1).astype(int)
-        niche = nodes[niche_col].astype(float).fillna(0.0)
+        Sigma = self.features
         D = self.distance_matrix
 
         probabilities = pd.DataFrame(0.0, index=nodes.index, columns=nodes.index)
@@ -303,10 +357,10 @@ class FERM:
                 print(origin)
 
             origin_population = populations[origin]
-            # origin_niche = niche[origin]
+            threshold_center = Sigma.loc[origin, origin]
 
             origin_thresholds = gaussian_max_sample_vec(
-                mu=0.0,
+                mu=threshold_center,
                 sigma=sigma,
                 n=origin_population,
                 size=num_particles,
@@ -323,12 +377,12 @@ class FERM:
                     break
 
                 destination_population = populations[destination]
-                # destination_niche = niche[destination]
+                offer_center = Sigma.loc[origin, destination]
 
                 remaining = (~assigned).sum()
 
                 destination_attractiveness = gaussian_max_sample_vec(
-                    mu=self.features.loc[destination, origin],
+                    mu=offer_center,
                     sigma=sigma,
                     n=destination_population,
                     size=remaining,
@@ -679,7 +733,5 @@ def predicted_flows_from_probabilities(
     )
 
     return comparison
-
-
 
 

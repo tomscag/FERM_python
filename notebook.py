@@ -31,10 +31,10 @@ def create_feature_matrix(niche_path, normalize=True):
     
     if normalize:
         # Normalization (zscore log)
-        diff = np.log1p(origin) - np.log1p(destination)
+        diff = np.log1p(destination) - np.log1p(origin)
         diff = (diff - np.nanmean(diff))/np.nanstd(diff)
     else:
-        diff = origin - destination
+        diff = destination - origin
     df = pd.DataFrame(
             data = diff,
             index = niche.index,
@@ -218,7 +218,6 @@ plot_rm_vs_ferm_error_scatter(
 
 #%% Plot time series migrants
 plot_timeseries_migrants(migrations)
-
 
 
 
