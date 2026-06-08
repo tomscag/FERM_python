@@ -88,14 +88,22 @@ def compare_rm_vs_ferm_routes(comp_rm, comp_ferm):
     return merged
 
 def add_coords_to_routes(df, country_geo):
-    geo = country_geo[["code", "lat", "lon"]].drop_duplicates().copy()
+    geo = country_geo[["code", "iso3", "lat", "lon"]].drop_duplicates().copy()
+
+    route_codes = pd.concat([df["country_from"], df["country_to"]]).dropna()
+    route_codes = route_codes.astype(str).str.strip().str.upper()
+    geo_key = "iso3" if route_codes.str.len().median() == 3 else "code"
 
     df = df.merge(
-        geo.rename(columns={"code": "country_from", "lat": "lat_from", "lon": "lon_from"}),
+        geo.rename(columns={geo_key: "country_from", "lat": "lat_from", "lon": "lon_from"})[
+            ["country_from", "lat_from", "lon_from"]
+        ],
         on="country_from", how="left"
     )
     df = df.merge(
-        geo.rename(columns={"code": "country_to", "lat": "lat_to", "lon": "lon_to"}),
+        geo.rename(columns={geo_key: "country_to", "lat": "lat_to", "lon": "lon_to"})[
+            ["country_to", "lat_to", "lon_to"]
+        ],
         on="country_to", how="left"
     )
     return df

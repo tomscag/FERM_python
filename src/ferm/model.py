@@ -258,6 +258,7 @@ class FERM:
         nodes: pd.DataFrame,
         flows: pd.DataFrame,
         features: pd.DataFrame | np.ndarray,
+        distance_matrix: Optional[pd.DataFrame | np.ndarray] = None,
     ) -> None:
         """
         Parameters
@@ -275,12 +276,18 @@ class FERM:
             are destinations. The index/columns must match `nodes['iso3']` if
             a DataFrame is provided. If a NumPy array is provided, it is assumed
             to be ordered like `nodes['iso3']`.
+        distance_matrix : pd.DataFrame or np.ndarray, optional
+            Square distance matrix used to order destinations from each origin.
+            Rows are origins and columns are destinations. If omitted, distances
+            are computed from `nodes['lat']` and `nodes['lon']`.
         """
         validate_nodes(nodes, {"code", "iso3", "population", "lat", "lon"})
         self.nodes: pd.DataFrame = nodes.copy()
         self.flows = flows
         self.features = self._prepare_attractiveness_matrix(features)
-        self._distance_matrix: Optional[pd.DataFrame] = None
+        self._distance_matrix: Optional[pd.DataFrame] = self._prepare_distance_matrix(
+            distance_matrix
+        )
 
     def _prepare_attractiveness_matrix(
         self,
@@ -319,6 +326,43 @@ class FERM:
             )
 
         return sigma
+
+    def _prepare_distance_matrix(
+        self,
+        distance_matrix: Optional[pd.DataFrame | np.ndarray],
+    ) -> Optional[pd.DataFrame]:
+        """
+        Validate and align a user-provided distance matrix.
+        """
+        if distance_matrix is None:
+            return None
+
+        codes = self.nodes["iso3"].tolist()
+
+        if isinstance(distance_matrix, pd.DataFrame):
+            missing_rows = set(codes) - set(distance_matrix.index)
+            missing_cols = set(codes) - set(distance_matrix.columns)
+            if missing_rows or missing_cols:
+                raise ValueError(
+                    "`distance_matrix` must contain all node ISO3 codes as both "
+                    f"rows and columns. Missing rows: {sorted(missing_rows)}; "
+                    f"missing columns: {sorted(missing_cols)}"
+                )
+            distances = distance_matrix.loc[codes, codes].astype(float).copy()
+        else:
+            values = np.asarray(distance_matrix, dtype=float)
+            expected_shape = (len(codes), len(codes))
+            if values.shape != expected_shape:
+                raise ValueError(
+                    "`distance_matrix` must be a square matrix with shape "
+                    f"{expected_shape}; got {values.shape}."
+                )
+            distances = pd.DataFrame(values, index=codes, columns=codes)
+
+        if distances.isna().any().any():
+            raise ValueError("`distance_matrix` contains missing values.")
+
+        return distances
 
     @property
     def distance_matrix(self) -> pd.DataFrame:
@@ -463,7 +507,8 @@ class RM:
 
     def __init__(self,
                  nodes: pd.DataFrame, flows: pd.DataFrame,
-                 eps: float = DEFAULT_EPS) -> None:
+                 eps: float = DEFAULT_EPS,
+                 distance_matrix: Optional[pd.DataFrame | np.ndarray] = None) -> None:
         """
         Parameters
         ----------
@@ -477,12 +522,55 @@ class RM:
             Observed flows
         eps : float, default=1.0
             Small constant used in logarithmic error diagnostics.
+        distance_matrix : pd.DataFrame or np.ndarray, optional
+            Square distance matrix used to order destinations from each origin.
+            Rows are origins and columns are destinations. If omitted, distances
+            are computed from `nodes['lat']` and `nodes['lon']`.
         """
         validate_nodes(nodes, {"code", "population", "lat", "lon"})
         self.nodes: pd.DataFrame = nodes.copy()
         self.flows: pd.DataFrame = flows.copy()
         self.eps: float = float(eps)
-        self._distance_matrix: Optional[pd.DataFrame] = None
+        self._distance_matrix: Optional[pd.DataFrame] = self._prepare_distance_matrix(
+            distance_matrix
+        )
+
+    def _prepare_distance_matrix(
+        self,
+        distance_matrix: Optional[pd.DataFrame | np.ndarray],
+    ) -> Optional[pd.DataFrame]:
+        """
+        Validate and align a user-provided distance matrix.
+        """
+        if distance_matrix is None:
+            return None
+
+        codes = self.nodes["iso3"].tolist()
+
+        if isinstance(distance_matrix, pd.DataFrame):
+            missing_rows = set(codes) - set(distance_matrix.index)
+            missing_cols = set(codes) - set(distance_matrix.columns)
+            if missing_rows or missing_cols:
+                raise ValueError(
+                    "`distance_matrix` must contain all node ISO3 codes as both "
+                    f"rows and columns. Missing rows: {sorted(missing_rows)}; "
+                    f"missing columns: {sorted(missing_cols)}"
+                )
+            distances = distance_matrix.loc[codes, codes].astype(float).copy()
+        else:
+            values = np.asarray(distance_matrix, dtype=float)
+            expected_shape = (len(codes), len(codes))
+            if values.shape != expected_shape:
+                raise ValueError(
+                    "`distance_matrix` must be a square matrix with shape "
+                    f"{expected_shape}; got {values.shape}."
+                )
+            distances = pd.DataFrame(values, index=codes, columns=codes)
+
+        if distances.isna().any().any():
+            raise ValueError("`distance_matrix` contains missing values.")
+
+        return distances
 
     @property
     def distance_matrix(self) -> pd.DataFrame:
