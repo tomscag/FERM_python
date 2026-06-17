@@ -1,0 +1,29 @@
+Thesis
+Relational FERM is not a new mobility mechanism. It is a corridor-specific parameterization of attractiveness inside the same radiation-style absorption process. The empirical question is whether a bilateral Sigma matrix contains useful route-level signal beyond population and distance.
+
+Audience
+PhD/research presentation audience. The deck should be understandable to someone who knows the Radiation Model but has not followed the notebook development.
+
+One-line arc
+Motivate corridor-specific attractiveness, define the shared radiation mechanism, introduce the Sigma matrix, show how RM / traditional FERM / relational FERM differ, explain normalization, then report out-of-sample evidence.
+
+Slide list
+1. Cover: Relational FERM keeps the radiation mechanism and changes attractiveness.
+2. Motivation: destination attractiveness alone cannot represent corridor-specific migration affinity.
+3. Shared mechanism: particles scan destinations by distance and are absorbed by the first offer beating a threshold.
+4. Latent variables: thresholds and offers are maxima of Gaussian draws.
+5. Sigma matrix: diagonal centers thresholds; off-diagonal centers offers.
+6. Model family: RM, traditional FERM, relational FERM, combined model as Sigma structures.
+7. Relational FERM: thresholds neutral, offers corridor-specific.
+8. Sigma/sigma interpretation: sign of Sigma and role of sigma.
+9. Empirical Sigma construction: GDP, Abel, SCI, common religion, diplomatic disagreement.
+10. Normalization problem: centering, sign orientation, heavy tails, missingness, split comparability.
+11. Empirical pipeline: validation split, test split, sigma tuning, distance fixed in model.
+12. Normalization sensitivity: selected normalization per feature group.
+13. Test results: GDP strongest, SCI strongest relational feature.
+14. Route-level heterogeneity: SCI wins many routes even if GDP dominates globally.
+15. Abel diagnostic: historical stock feature zeroes too many real routes.
+16. Interpretation: relational extension is viable but feature-dependent; next step is combined model.
+
+Omission notes
+Distance is not treated as a feature in this presentation because it is already part of the scanning order / distance matrix.

@@ -1,0 +1,56 @@
+{
+  "artifact_name": "combined_gdp_sci",
+  "created_at": "2026-06-15T11:44:50",
+  "target_continent": "Asia",
+  "calibration_label": "validation_2019_h1",
+  "test_label": "test_2019_h2",
+  "relational_feature_year": 2019,
+  "distance_col": "dist",
+  "num_particles": 50000,
+  "sigma_grid": [
+    0.5,
+    1.0,
+    2.0,
+    5.0,
+    8.0
+  ],
+  "model_specs": {
+    "gdp_only": {
+      "family": "traditional",
+      "label": "Traditional FERM: GDP only",
+      "kind": "gdp"
+    },
+    "sci_only": {
+      "family": "relational",
+      "label": "Relational FERM: SCI only",
+      "kind": "sci"
+    },
+    "combined_additive": {
+      "family": "combined",
+      "label": "Combined FERM: GDP + SCI additive",
+      "kind": "combined",
+      "mode": "additive"
+    },
+    "combined_euclidean": {
+      "family": "combined",
+      "label": "Combined FERM: GDP + SCI signed Euclidean",
+      "kind": "combined",
+      "mode": "euclidean"
+    },
+    "combined_additive_rescaled": {
+      "family": "combined",
+      "label": "Combined FERM: GDP + SCI additive, offdiag rescaled",
+      "kind": "combined",
+      "mode": "additive_rescaled"
+    },
+    "combined_linear_weighted": {
+      "family": "combined",
+      "label": "Combined FERM: GDP + SCI weighted linear",
+      "kind": "combined_linear_weighted",
+      "mode": "weighted_linear"
+    }
+  },
+  "gdp_transform": "log_zscore",
+  "sci_col": "scaled_sci_2021",
+  "gdp_col": "gdp_per_capita_2018"
+}

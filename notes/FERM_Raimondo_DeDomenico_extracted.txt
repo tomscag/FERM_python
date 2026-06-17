@@ -1,0 +1,800 @@
+
+--- PAGE 1 ---
+Projecting large-scale human movements in a1
+changing climate2
+Sebastian Raimondo1,2∗, Manlio De Domenico3,4∗
+1Fondazione Eni Enrico Mattei, ADAPT@VE,
+Sestiere San Marco 572, 30124 Venezia (VE), Italy
+2Department of Mathematics, University of Trento,
+Via Sommarive 9, 38123 Povo (TN), Italy
+3Department of Physics and Astronomy “Galileo Galilei”,
+University of Padova, Via F. Marzolo 8, 315126 Padova, Italy
+4Istituto Nazionale di Fisica Nucleare, Sez. Padova,
+Via F. Marzolo 8, 315126 Padova, Italy
+∗Corresponding authors: sebastian.raimondo@feem.it; manlio.dedomenico@unipd.it
+3
+Human mobility is a complex, multidimensional phenomenon, increasingly4
+shaped by socio-environmental transformations that are only partially under-5
+stood. Here, we present the Features-Enriched Radiation Model (FERM) that6
+integrates population, endogenous, data with exogenous drivers that critically7
+influence migration flows, ranging from economic factors to climate condi-8
+tions. FERM captures how external features dynamically reshape mobility9
+patterns in response to changing conditions, without relying solely on static10
+population distributions. We prove its theoretical consistency with the origi-11
+nal Radiation Model when geographic locations are indistinguishable with re-12
+spect to exogenous factors, and we apply FERM to synthetic environments and13
+1
+
+--- PAGE 2 ---
+real-world case studies in Italy and the United States. Our findings, informed14
+by climate projections for 2070, reveal profound shifts in mobility driven by15
+changes in the human climate niche. These results offer an unprecedented tool16
+for forecasting large-scale migration under future climate scenarios, providing17
+crucial insights for policy, urban planning, and climate adaptation strategies.18
+Keywords: human migration|climate change|complex networks19
+Significance statement. Climate change has the potential to reshape the global patterns
+of human movement within this century. Nevertheless, existing models focus primarily
+on population distributions, neglecting the dynamic interplay of environmental and socio-
+economic drivers. We introduce the Feature-Enriched Radiation Model (FERM), which
+integrates these external factors to project large-scale migration more accurately. FERM
+demonstrates how climate conditions dynamically influence mobility, revealing signifi-
+cant shifts in migration patterns by 2070 under severe climate scenarios. Tested in Italy
+and the United States, this model provides an adaptable tool for forecasting future mi-
+grations, aiding policymakers and planners in developing strategies for urban resilience,
+resource management, and climate adaptation. The FERM bridges a critical gap in un-
+derstanding human dispersal in an era of rapid environmental change.
+20
+Throughout history, billions of people around the world have moved in search of better liv-21
+ing conditions, driven by a complex interplay of factors. While economic opportunities and22
+political instability have long been recognized as primary motivators, today’s large-scale mi-23
+gration is increasingly shaped by profound and accelerating environmental changes. As global24
+transformations in climate, resources, and demographics intensify, the need to understand the25
+patterns and drivers of human movement has become more pressing. Accurately forecasting26
+migration in response to environmental shifts—such as those projected under future climate27
+scenarios—is critical for developing resilient urban infrastructures, informed policy decisions,28
+and effective climate adaptation strategies.29
+Migration today impacts a broad range of sectors, influencing urban planning [1, 2, 3, 4],30
+2
+
+--- PAGE 3 ---
+socio-economy [5, 6], epidemic dynamics [7, 8, 9, 10], human rights [11, 12, 13], and geopol-31
+itics [14, 15, 16] at both regional and international levels. The evolving nature of migration,32
+influenced by both socio-economic and environmental pressures, calls for the development of33
+robust models that can account for these diverse drivers. Understanding the complex interde-34
+pendencies between these factors is key to predicting migration flows and their far-reaching35
+impacts.36
+These socio-economic, political, and environmental conditions act as exogenous drivers on37
+individual decisions [17], shaping the emergence of complex mobility patterns that are often38
+difficult to capture with traditional models. One of the earliest attempts to formally define the39
+forces driving migration dates back to Ravenstein’s work in 1885 and 1889 [18, 19]. Raven-40
+stein’s ”laws of migration,” grounded in social and economic principles, established a founda-41
+tion for migration models. These ideas inspired the gravity model, introduced by Schneider in42
+1959 [20], which predicts migration flows as proportional to population at origin and destina-43
+tion and inversely proportional to distance [21, 22, 23]. This model remains a cornerstone for44
+understanding migration and trade patterns.45
+More recently, the Radiation Model (RM) has emerged as a powerful alternative to tradi-46
+tional migration models, such as the Gravity Model, by providing a physically grounded ap-47
+proach to human mobility that avoids the need for empirical parameter calibration [24]. Rooted48
+in first principles, the RM aligns with key sociological theories, including the effects of dis-49
+tance [25] and intervening opportunities [26]. In this framework, geographic locations are con-50
+ceptualized as sources that emit particles — analogous to individuals — each of which has a51
+defined probability of being absorbed by nearby locations. This probability is determined ex-52
+clusively by the spatial distribution of the population, making population density the model’s53
+sole input requirement. The Radiation Model (RM), despite its simplicity and ability to address54
+limitations of earlier models, relies solely on population as a driver of mobility, excluding crit-55
+3
+
+--- PAGE 4 ---
+ical exogenous factors like environmental conditions or policies. This restricts its applicability56
+under changing socio-environmental contexts. Extensions to the RM have sought to overcome57
+these limitations: the Radiation Model with selection [27] refined intervening opportunities;58
+Kang et al.[28] introduced spatial scaling and directional constraints; Davis et al.[29] incor-59
+porated flood-induced migration; and Alis et al. [30] replaced population with an urbanization60
+index using machine learning. Despite these advancements, a model integrating diverse external61
+drivers remains essential.62
+Here, we introduce the Features-Enriched Radiation Model (FERM), an advanced exten-63
+sion of the original Radiation Model that explicitly incorporates exogenous drivers, such as64
+environmental and socio-economic factors, shaping the emergence of complex mobility pat-65
+terns. FERM preserves the foundational principles of the Radiation Model but significantly66
+expands its scope, adjusting mobility flows in response to the attractiveness assigned to each67
+location based on its unique features. While the core emission/absorption mechanism remains68
+unchanged, the underlying stochastic process is modified so that the probability of absorp-69
+tion reflects the location-specific attractiveness, dynamically influenced by external conditions.70
+FERM thus provides a mathematically robust alternative to the original Radiation Model and its71
+currently variations, providing greater adaptability when location-specific factors are essential72
+to accurately capture mobility flows. In the following sections, we present the mathematical73
+formulation of FERM and the numerical methods used to compute the resulting mobility net-74
+work structure. To illustrate the adaptability of the model, we first demonstrate its behavior in75
+synthetic spatial environments with self-similar distributions, capturing key structural dynam-76
+ics. We then apply FERM to real-world case studies in Italy and the United States, deriving77
+interregional mobility flows based on projected climatic conditions for 2070. In our scenario78
+analysis, parameters are intentionally set to mirror the spatial distribution of location features,79
+without calibration to specific datasets. We show that with optimal parameterization, FERM80
+4
+
+--- PAGE 5 ---
+can accurately forecast mobility patterns driven by exogenous factors that the standard Radia-81
+tion Model cannot capture, positioning FERM as a versatile tool for scenario-based migration82
+modeling under diverse future environmental and socio-economic conditions.83
+Results84
+The Feature-enriched Radiation Model. To allow for the inclusion of exogenous factors85
+in migration dynamics, the Feature-Enriched Radiation Model (FERM) extends the Radiation86
+Model (see Materials and Methods for details) by introducing flexibility in the benefit distribu-87
+tion across locations (Supplementary Figure 1). In FERM, each location is assigned a unique88
+benefit distribution that reflects its specific features, such as environmental suitability or eco-89
+nomic opportunity. These distributions are tailored based on external parameters, allowing the90
+model to adjust the probability of absorption dynamically in response to these location-specific91
+features. The mathematical structure of FERM maintains the core physical process of the Ra-92
+diation Model: particles are emitted from an origin location and are absorbed at a destination.93
+However, the distribution of these particles is now influenced not only by population size but94
+also by the attractiveness of each location, encoded in parameters that represent exogenous95
+features. This additional layer of information enables FERM to capture the effects of diverse96
+external drivers—such as climate, infrastructure, and policy—on mobility flows, thus providing97
+a nuanced, feature-responsive approach to migration modeling.98
+In order to integrate exogenous drivers effectively, FERM modifies the probability frame-99
+work used in the standard Radiation Model. The benefit distribution,p(z), now varies between100
+locations according to feature-specific parameters, which we denote as θ. These parameters θi101
+and θj adjust the benefit distribution at both the origin and destination locations i and j, re-102
+spectively, to reflect the unique characteristics of each location. Mathematically, the parameters103
+θmodify the cumulative distribution function F (z|θ), which governs the emission/absorption104
+5
+
+--- PAGE 6 ---
+probabilities. In contrast to the original model, where F (z) is uniform across all locations,105
+FERM allows F (z|θ) to shift according to local conditions (see Materials and Methods). For106
+instance, locations with high attractiveness, whether due to favorable climatic conditions or107
+economic advantages, will display benefit distributions skewed toward higher values, thus in-108
+creasing their probability of absorbing particles (i.e., attracting migration flows).109
+The adjusted probability of absorption between two locations, P (1|mi,nj,sij,θi,θj), now110
+depends on both population and feature-based factors. This probability can be derived as fol-111
+lows:112
+P (1|mi,nj,Lij,θi,θj) =
+∫ ∞
+0
+∫ ∞
+0
+miFX (xi|θi)mi−1FX (xi|θi)
+dxi
+·
+njFY (yj|θj)nj−1FY (yj|θj)
+dyj
+·
+∏
+k∈Lij
+[1−FU (uik)]·FU (uij)dxidyj
+(1)
+Here, Xi and Yj represent the fitness variables at the origin and destination, respectively,113
+while Lij denotes the set of indices for locations within a radius rij centered at i along the114
+pathi→j. The term P (1|mi,nj,Lij,θi,θj) quantifies the probability of movement between115
+locations i and j, governed by the maximum values sampled from the benefit distributions,116
+which represent the absorption threshold and absorbance. Crucially, this formulation seamlessly117
+integrates location-specific features into the stochastic process, thereby allowing the model to118
+dynamically adjust to external conditions, all while preserving the core emission/absorption119
+mechanism that defines the Radiation Model. This balance between flexibility and adherence to120
+the basic principles of the model is a defining strength, allowing FERM to generalize migration121
+patterns while retaining its theoretical rigor.122
+To achieve efficient estimates of mobility patterns, numerical approximations such as sam-123
+pling from the distribution of the maximum (DM) via Adaptive Rejection Metropolis Sampling124
+6
+
+--- PAGE 7 ---
+Synthetic World
+Soneria-Peebles
+RM FERM
+(a) (b)
+(c)
+Figure 1: Synthetic spatial distribution and resulting mobility patterns. Spatial distribution
+of synthetic locations, generated using the Soneira-Peebles model [31] (A), with the result-
+ing probability matrices (B) and network flows (C) from the standard Radiation Model (RM)
+and Feature-Enriched Radiation Model (FERM). The locations with modified attractiveness are
+highlighted in red in the two networks.
+(ARMS) are employed. The detailed derivation and computational procedure for these approx-125
+imations are available in the Supplementary Information (SI).126
+When the parameters are uniform across all locations (i.e., θi = θj;∀i,j ), the model in127
+eq. (1) reduces to the standard Radiation Model, as expressed in eq. (2). In this case, the128
+original Radiation Model is recovered by marginalizing the parameters through integration,129
+thereby preserving formal consistency with the standard version of the model. We refer to the130
+SI for a numerical proof of the consistency between the two models.131
+7
+
+--- PAGE 8 ---
+Figure 1(a) illustrates a synthetic yet statistically realistic spatial distribution of 100 loca-132
+tions, each characterized by a population size sampled from a power-law distribution [32]. The133
+spatial coordinates of the nodes are generated using a mathematical model initially developed134
+to represent the fractal distribution of matter in the universe [31, 33] (details in SI).135
+Figure 1(b) illustrates the impact of the Feature-Enriched Radiation Model (FERM) on mo-136
+bility patterns when the attractiveness of 10 central locations is modified. These 10 nodes, po-137
+sitioned near the center of the synthetic world of 100 locations, exhibit enhanced features (e.g.,138
+increased environmental suitability or socio-economic appeal) but have very small populations,139
+allowing for a clear comparison with the baseline Radiation Model (RM).140
+In the FERM simulation, the redistribution of probabilities is evident in the rows and columns141
+of the probability matrix. Specifically, the enhanced nodes (highlighted in red in Figure 1 (c))142
+show a marked increase in incoming probabilities at their respective columns, reflecting their143
+elevated attractiveness as destinations. To maintain normalization (row sums equal to 1), prob-144
+abilities associated with less attractive nodes diminish. This effect is mirrored in the mobility145
+network, where flows toward the enhanced nodes intensify, while connections present in the146
+RM are restructured or entirely removed in FERM.147
+For instance, the northeastern cluster, which had moderate connections to the northern clus-148
+ter in the RM, redirects all its flows toward the central cluster in FERM. Notably, no flows149
+previously existed between these clusters in the RM. Similarly, flows from the highly popu-150
+lated location in the southwest are now almost exclusively directed toward the central cluster151
+in FERM, with significantly high probabilities. This demonstrates the model’s ability to pri-152
+oritize feature-based attractiveness over raw population size, fundamentally reshaping the flow153
+network structure.154
+Interestingly, FERM also reveals secondary effects on nodes whose attractiveness remains155
+unchanged. For example, some nodes in the northwest modify their routing patterns, redis-156
+8
+
+--- PAGE 9 ---
+tributing flows to align with the new attractiveness landscape. This change underscores the157
+interconnected influence of enhanced nodes, as their increased attractiveness propagates adjust-158
+ments across the entire network.159
+A striking observation is the reversal of link directions between the central cluster and its160
+neighbors. In the RM, outflows dominate due to nearby high-population areas, but in FERM,161
+inflows prevail, reflecting how external factors can enhance the attractiveness of less-populated162
+regions. Additionally, FERM captures the emergence of preferential routes akin to a ”rich-club”163
+phenomenon. The enhanced nodes exhibit intensified bidirectional flows among themselves,164
+despite their low populations. This behavior underscores FERM’s capacity to redefine network165
+centrality based on features rather than population size alone.166
+Scenario Analysis. Here, we investigate the behavior of the Features-Enriched Radiation167
+Model when the characteristics of geographic locations are influenced by varying climatic con-168
+ditions.169
+The Features-Enriched Radiation Model (FERM) incorporates exogenous factors such as170
+climate suitability to extend the traditional Radiation Model. Climate suitability, quantified171
+through shifts in the human climate niche as defined by Xu et al. [34], serves as a key driver172
+of mobility patterns. While population remains a proxy for socio-economic factors, highly173
+correlated variables like GDP are omitted to avoid redundancy (see figures in the SI for details174
+). We assume current proportional population distributions persist over time.175
+FERM is applied to Italian regions and U.S. states under two climate niche scenarios: Tem-176
+perature and Temperature + Precipitation, derived from RCP8.5 and SSP3 pathways [34]. The177
+scenarios predict mobility patterns based on changes in environmental suitability. These shifts178
+reflect dynamic adjustments in migration, with FERM capturing flows that align with both local179
+suitability and broader systemic interactions.180
+9
+
+--- PAGE 10 ---
+In Italy, northern regions gain suitability due to warming alpine conditions, while southern181
+regions face worsening conditions, particularly under the combined Temperature + Precipita-182
+tion scenario. Similarly, U.S. states exhibit varying responses, with southern states like Al-183
+abama and Tennessee showing outflows toward climatically stable regions like the Northwest.184
+FERM demonstrates adaptability to diverse external factors, making it a robust tool for fore-185
+casting mobility in evolving climate scenarios. Future iterations should optimize parameteriza-186
+tion and integrate additional socio-economic and environmental variables to enhance predictive187
+accuracy. For further details on scenario generation, we refer to [34].188
+Inter-regional mobility in Italy. Italy’s diverse climatic conditions, ranging from alpine to189
+Mediterranean regions [35], are projected to shift under climate change. The northern Alpine190
+regions are expected to benefit from warming conditions, becoming more suitable, while south-191
+ern areas face deterioration due to increased temperatures and water scarcity [36, 37].192
+Under the Temperature + Precipitation scenario, climatic changes are more extreme, but193
+the overall shift is slightly positive (+0.15). Regional suitability shifts, quantified using climate194
+niche changes, drive the FERM simulations, with average niche shifts determining the benefit195
+distribution means for each region (variance set to 1; sensitivity analysis in the SI).196
+Results, presented in fig. 3, reveal substantial differences in migration flows between the197
+Radiation Model and FERM. The Temperature scenario shows denser networks due to wors-198
+ening southern conditions, while the Temperature + Precipitation scenario reflects improved199
+climatic conditions overall, though southern-to-northern flows persist and intensify. These find-200
+ings highlight FERM’s ability to reshape mobility patterns in response to climate-driven re-201
+gional suitability changes.202
+FERM reveals significant differences from the Radiation Model (RM), particularly in net-203
+work density and flow patterns. Under the Temperature scenario (fig. 3(b)), FERM produces204
+10
+
+--- PAGE 11 ---
+(a) Scenario: Temperature
+ (b) Scenario: Temperature + Precipitation
+(c) Average niche difference under
+Scenario: Temperature
+(d) Average niche difference under
+Scenario: Temperature + Precipitation
+Figure 2: Climate Niche Difference – Italy.The climate niche difference is computed between
+the current and future climate scenario RCP8.5. (a) Scenario: Temperature; (b) Scenario: Tem-
+perature + Precipitation; (c) Average niche difference under Scenario: Temperature; (d) Aver-
+age niche difference under Scenario: Temperature + Precipitation.
+a denser network with larger flux magnitudes compared to RM (fig. 3(a)), driven by worsen-205
+ing conditions in southern Italy that halt north-to-south flows. Conversely, the Temperature +206
+Precipitation scenario shows lower overall density due to improved climatic conditions (+0.15207
+shift), although intensified south-to-north flows persist.208
+These results demonstrate FERM’s ability to adapt migration patterns, redirecting flows,209
+reshaping networks, and introducing new routes while modifying existing ones.210
+The OD matrices and network structure illustrate changes in mobility patterns, while fig. 3(d)211
+11
+
+--- PAGE 12 ---
+Figure 3: Mobility Networks – Italy – as computed by RM (a) and FERM under the scenarios
+Temperature (c) and Temperature + Precipitation (c); (d) Scenario analysis: niche difference
+and aggregated results (inflow unnormalized probability) for Italian regions.
+provides deeper insights into their causes. The bar plot compares climate niche shifts (fig. 2)212
+with aggregated inflows for each region under FERM and RM. Regions experiencing improved213
+conditions, such as Abruzzo, Basilicata, Calabria, and Campania, attract fewer flows in dete-214
+riorating scenarios, and vice versa. Emilia-Romagna exemplifies this pattern, with contrasting215
+conditions across scenarios yet consistent mobility trends. Puglia faces the most adverse out-216
+comes, with flows significantly reduced as the climate niche worsens.217
+Unexpected results emerge in regions like Piemonte and Lombardia. Piemonte, despite218
+improved conditions under both scenarios, shows smaller fluxes in the Temperature + Pre-219
+12
+
+--- PAGE 13 ---
+cipitation scenario, though higher than RM. Lombardia, with modest improvement under the220
+Temperaturescenario, experiences sharp inflow reductions under Temperature + Precipitation,221
+likely due to competition from neighboring regions with similar suitability. Sicily, despite sig-222
+nificant climate deterioration, maintains relatively stable fluxes.223
+These findings highlight how FERM accounts for both local features and global system224
+dynamics, illustrating complex interactions where suitability improvements in one region can225
+suppress inflows due to competition from nearby areas (fig. 2).226
+Inter-state mobility in USA. A similar analysis was conducted for the United States, char-227
+acterized by diverse climates ranging from alpine to desert. Projected 2070 climate niche shifts228
+(fig. 4) reveal the most extreme changes under the Temperature + Precipitationscenario.229
+Average niche shifts (+0.14 for Temperature, +0.17 for Temperature + Precipitation) drive230
+FERM simulations (more details in the SI). While overall conditions improve slightly, states231
+like Alabama, Tennessee, and Oklahoma are projected to experience significant climatic deteri-232
+oration.233
+OD matrices (figures available in the SI) and mobility networks (fig. 5) highlight mobility234
+patterns. Under the Temperature scenario, denser networks emerge, resembling the RM. Ho-235
+mogeneous conditions in this scenario amplify the role of population density, creating crowded236
+short-range flows while dampening longer-range flows.237
+The Temperature + Precipitationscenario induces a notable ”sparsification” of the network,238
+with improved average conditions (+0.17 niche shift). Long-range flows target regions with239
+high climate suitability, such as Alabama to North Dakota, while states in the southeast increase240
+outflows toward the northwest. South Dakota sees one of the largest relative inflow increases,241
+while Tennessee emerges as the most adversely affected, with inflows nearly eliminated. Ohio242
+experiences significant inflow increases due to its proximity to populous states facing worsening243
+13
+
+--- PAGE 14 ---
+(a)
+ (b)
+(c)
+ (d)
+Figure 4: Climate Niche Difference – USA– (a) Scenario: Temperature; (b) Scenario: Temper-
+ature + Precipitation; (c) Average niche difference under Scenario: Temperature; (d) Average
+niche difference under Scenario: Temperature + Precipitation. The climate niche difference is
+computed between the current and the future climate scenario RCP8.5, assuming the population
+density as given by the socio-economic scenario SSP3.
+conditions.244
+Figure 5(d) quantifies these trends, showing aggregated inflows and correlations between245
+niche changes and flow differences across RM and FERM. Additional analysis (summarized246
+in a figure available in the SI) confirm statistically significant associations, validating FERM’s247
+ability to integrate feature-based insights into migration patterns.248
+FERM demonstrates its potential to predict mobility by leveraging node features as drivers.249
+However, optimizing parameters and incorporating additional variables—such as extreme weather250
+14
+
+--- PAGE 15 ---
+(a)
+(b)
+(c)
+−1.0
+−0.5
+0.0
+0.5
+1.0
+Alabama
+Alaska
+Arizona
+Arkansas
+California
+Colorado
+Connecticut
+Delaware
+District of Columbia
+Florida
+Georgia
+Hawaii
+Idaho
+Illinois
+Indiana
+Iowa
+Kansas
+Kentucky
+Louisiana
+Maine
+Maryland
+Massachusetts
+Michigan
+Minnesota
+Mississippi
+Missouri
+Montana
+Nebraska
+Nevada
+New Hampshire
+New Jersey
+New Mexico
+New York
+North Carolina
+North Dakota
+Ohio
+Oklahoma
+Oregon
+Pennsylvania
+Rhode Island
+South Carolina
+South Dakota
+Tennessee
+Texas
+Utah
+Vermont
+Virginia
+Washington
+West Virginia
+Wisconsin
+Wyoming
+Niche Difference
+Scenario Temperature Temperature + Precipitation
+0
+2
+4
+Alabama
+Alaska
+Arizona
+Arkansas
+California
+Colorado
+Connecticut
+Delaware
+District of Columbia
+Florida
+Georgia
+Hawaii
+Idaho
+Illinois
+Indiana
+Iowa
+Kansas
+Kentucky
+Louisiana
+Maine
+Maryland
+Massachusetts
+Michigan
+Minnesota
+Mississippi
+Missouri
+Montana
+Nebraska
+Nevada
+New Hampshire
+New Jersey
+New Mexico
+New York
+North Carolina
+North Dakota
+Ohio
+Oklahoma
+Oregon
+Pennsylvania
+Rhode Island
+South Carolina
+South Dakota
+Tennessee
+Texas
+Utah
+Vermont
+Virginia
+Washington
+West Virginia
+Wisconsin
+Wyoming
+Inflow
+Model RM FERM − Temperature FERM − Temperature + Precipitations
+(d)
+Figure 5: Mobility Networks – USA – as computed by RM (a) and FERM under the scenarios
+Temperature (c) and Temperature + Precipitation (c); (d) Scenario analysis: niche difference
+and aggregated results (inflow unnormalized probability) for USA. The edges linking Alaska
+and Hawaii with the continent have been left out for display purposes.
+15
+
+--- PAGE 16 ---
+events, rising sea levels, social connectedness, and cultural identity—will improve scenario re-251
+alism. Including these factors in future studies will enrich FERM’s capacity to model complex252
+migration dynamics.253
+Discussion254
+We introduced the Features-Enriched Radiation Model (FERM), a mathematical generalization255
+of the Radiation Model, to incorporate exogenous factors as key drivers of large-scale human256
+mobility. FERM broadens the original model by modifying benefit distributions to account for257
+location-specific features while preserving its core processes. By demonstrating equivalence258
+with the Radiation Model under uniform conditions, FERM ensures theoretical consistency259
+while expanding its scope to include complex environmental and socio-economic dynamics.260
+Applying FERM to Italy and the United States, we generated scenarios based on shifts in the261
+human climate niche [34], showing how external factors can dynamically influence migration262
+patterns. Unlike the original Radiation Model, FERM captures how less populated regions can263
+become attractive due to external drivers, such as improved climate suitability. These findings264
+emphasize FERM’s flexibility in addressing conditions where the Radiation Model struggles,265
+such as urban environments and low-income regions [28].266
+Future work should refine FERM through parameter calibration using historical data. A267
+hierarchical Bayesian framework could enhance its adaptability, treating drivers like climate268
+suitability, GDP, and policies as conditional distributions to isolate their effects [38]. This ap-269
+proach is particularly valuable given FERM’s capacity to distinguish ”push” and ”pull” factors.270
+For instance, climate-induced events like flooding act as ”push” factors, driving out-migration271
+from highly exposed regions [39], while improved conditions elsewhere act as ”pull” factors.272
+By capturing both dynamics, FERM provides a nuanced framework for modeling migration273
+pressures.274
+16
+
+--- PAGE 17 ---
+Historical insights from ancient human mobility [40] offer valuable context. Early humans275
+adapted to climatic shifts by navigating trade-offs between opportunity and risk, behaviors mir-276
+rored in modern migration under environmental pressures. For instance, FERM could model277
+movement toward emerging ”climate-compatible” niches, akin to those seen during the Mid-278
+Pleistocene Transition, providing a rigorous framework to explore these dynamics. Incorpo-279
+rating such insights as Bayesian priors could bridge paleoclimatology and predictive migration280
+modeling, enriching FERM’s scope and interdisciplinary relevance.281
+These findings have practical implications for policy. Policymakers should prioritize resilience-282
+building in high-inflow regions by optimizing infrastructure and resource availability while sup-283
+porting adaptation strategies in vulnerable areas. By addressing data limitations and expanding284
+its drivers, FERM can serve as a powerful tool for understanding migration dynamics and guid-285
+ing decisions in response to environmental and socio-economic change.286
+FERM’s ability to integrate diverse drivers, coupled with its flexibility, makes it well-suited287
+to scenarios where the original Radiation Model is less effective. Its capacity to generate migra-288
+tion scenarios based on exogenous factors positions it as a valuable framework for addressing289
+the challenges of human mobility in a changing world.290
+Materials and Methods291
+To make this study self-contained, we revisit the standard Radiation Model (RM) and its limitations,292
+which motivated our generalization. The RM provides a parameter-free framework for modeling com-293
+muting and migration flows, requiring only population distribution data [24]. By treating population as294
+a proxy for migration drivers, it integrates push and pull factors into a single variable, effectively cap-295
+turing certain socio-economic influences, such as employment opportunities. However, this simplicity296
+comes at the cost of excluding critical exogenous factors, such as cultural, political, geographic, and297
+environmental conditions [30].298
+This reliance on population alone limits the model’s capacity to capture migration responses to exter-299
+nal changes unrelated to population density. Consequently, the RM struggles to model human mobility300
+under complex socio-environmental scenarios. To address these challenges, we extend the RM’s math-301
+ematical framework to integrate diverse external conditions that shape migration dynamics, broadening302
+its applicability to modern migration research.303
+17
+
+--- PAGE 18 ---
+The Radiation Model (RM) is formally defined through an analogy with radiation emission and304
+absorption processes in physical sciences. In this framework, each location in space acts as a source that305
+emits identical, independent particles. The process unfolds as follows:306
+1. Each location i emits a particleQ, which has an absorption thresholdzQ
+i , indicating the particle’s307
+likelihood of being absorbed. Higher thresholds correspond to lower absorption probabilities.308
+2. The receiving location j has a probability of absorbing particleQ fromi, which increases with the309
+location’sabsorbancezQ
+j .310
+3. Particle Q is absorbed by the nearest location where the absorbance exceeds the particle’s absorp-311
+tion threshold.312
+4. This process is repeated many times (with multiple particles for each location) to generate the flow313
+of particles between locations.314
+Both the absorption threshold zQ
+i and the absorbance zQ
+j are determined as maximum values ob-315
+tained from mi and nj random samples, respectively, drawn from a single probability distribution,316
+F(z)1. This distribution, called the benefit distribution p(z) = dF (z)
+dz , represents the quality of op-317
+portunities available in each location [23]. A key assumption of the RM is that the distribution F(z)318
+remains identical across all locations, withmi andnj denoting the population sizes at locationsi andj,319
+respectively [24]. In this formulation, larger populations correspond to larger sample sizes drawn from320
+F(z), leading to higher average values ofzQ. Consequently, the model inherently assigns a greater like-321
+lihood of absorption to locations with higher populations, reflecting a greater ”attractiveness” in these322
+areas. However, by relying solely on population to modulate this attractiveness, the RM assumes that all323
+factors influencing absorption are encapsulated by population density alone, overlooking how location-324
+specific characteristics (e.g., environmental or economic conditions) might independently affect mobility325
+flows.326
+Assuming that F(z) remains constant across locations, the probability of an emission/absorption327
+event between any two locations can be derived analytically. Specifically, the probabilityP(1|mi,nj,sij)328
+that a particleQ emitted from locationi (with populationmi) is absorbed at locationj (with population329
+nj), wheresij represents the total population of intermediate locations betweeni andj, is given by:330
+P (1|mi,nj,sij) =
+∫ ∞
+0
+miF(z)mi−1dF(z)
+dz F(z)sij[1−F (z)]njdz =
+minj
+(mi +sij) (mi +nj +sij).
+(2)
+where the term miF(z)mi−1dF (z)
+dz represents the probability density function of the maximum in mi331
+samples drawn from the benefit distribution, which gives the likelihood of obtaining a threshold value332
+z at location i. The term F(z)sij is the cumulative distribution function (CDF) of the maximum value333
+fromsij samples, representing the probability that all values for intermediate locations between i andj334
+are below z. Lastly, [1−F(z)]nj denotes the probability that the maximum from nj samples exceeds335
+1In the following, we denote the cumulative distribution function (CDF) asF(·).
+18
+
+--- PAGE 19 ---
+z, representing the chance that location j’s absorbance surpasses the particle’s absorption threshold.336
+Equation 2 encapsulates these components in a mathematical formalization of the process.337
+In this formulation, eq. (2) depends only on the populationsmi andnj at locationsi andj and onsij,338
+the population of intermediate locations. As the integral removes any dependence on the specific shape339
+ofF(z), the probabilityP (1|mi,nj,sij) becomes independent of the distribution itself, rendering the340
+model parameter-free. This approach simplifies the model’s use, as it requires only the population data341
+for each location, with no need for prior knowledge of mobility flows.342
+However, this simplicity comes at the cost of flexibility. The model cannot explicitly account for343
+other important factors influencing mobility, such as economic or environmental conditions, and political344
+or social constraints. While population can encode some information about migration drivers, it does not345
+allow for disentangling the impacts of these diverse factors. Since all locations share the same benefit346
+distributionp(z), from whichzQ
+i andzQ
+j values are derived, differences in mobility flows depend solely347
+on population sizes and the spatial arrangement ofi andj with respect to the surrounding locations.348
+We report here the adjusted probability of absorption in Equation 1, P (1|mi,nj,sij,θi,θj). This
+probability depends on both population and feature-based factors:
+P (1|mi,nj,Lij,θi,θj) =
+∫ ∞
+0
+∫ ∞
+0
+miFX (xi|θi)mi−1FX (xi|θi)
+dxi
+·
+njFY (yj|θj)nj−1FY (yj|θj)
+dyj
+·
+∏
+k∈Lij
+[1−FU (uik)]·FU (uij)dxidyj
+whereXi andYj represent the fitness variables at the origin and destination, respectively.Lij is defined349
+as the set of indices of locations lying within a circle of radiusrij centered ati, with a path lengthi→j.350
+Specifically, given the set V of all location indices, Lij ={k⊂V|rik < rij;∀k}. The variable351
+U, defined as the difference between fitness values (Uij =Xi−Yj), is used to determine the probability352
+that the maximum value of X is less than the maximum value of Y . This probability, P ( ¯X < ¯Y ) =353
+P ( ¯X−¯Y < 0) = F(U), where the overline denotes the maximum, quantifies the likelihood that the354
+absorption threshold ati is surpassed by the absorbance atj.355
+The first term miFX (xi|θi)mi−1 FX (xi|θi)
+dxi
+is analogous to the first term in eq. (2) and represents356
+the probability density function of the maximum in mi extractions from FX(xi), corresponding to the357
+probability of obtaining the value ¯xi of the absorption threshold at the origin location i. The second358
+term provides the analogous probability for location j. As the processes at i and j are independent,359
+the product of these terms represents the joint probability of ¯X = ¯xi and ¯Y = ¯yj. The product term360
+∏
+k∈Lij [1−FU (uik)] gives the probability that all intermediate locations between i and j have max-361
+imum value ¯Y always below ¯X, effectively ensuring that no location between i and j exceeds this362
+threshold. In other words, it is the probability P (¯xi > ¯yk) = 1 −FU(uik) extended to all k∈Lij.363
+The last term,FU (uij) represents the probability that ¯xi< ¯yj, giving the probability that the absorption364
+threshold in locationj surpasses the absorbance inj.365
+The integral in eq. (1) does not yield a simple analytical solution, as it does in the original model.366
+However, it can be approximated numerically by sampling from the distributions, thus estimating the367
+probability of a movement between locations i and j, P (1|mi,nj,sij,θo,θd). With the distributions368
+19
+
+--- PAGE 20 ---
+FX(xi|θi) andFY (y|θj) specified, it is possible to draw mi andnj samples and take the maximum369
+value to determine the absorbance and absorption threshold, followed by calculating the products in the370
+integral. This process, while effective, requires multiple repetitions to ensure a robust approximation and371
+is computationally intensive.372
+To enhance efficiency, we adopt a more streamlined approach by directly sampling a single value373
+from the distribution of the maximum (DM), or largest order statistic distribution, of the random vari-374
+ablesX andY . When FX(xi|θi) andFY (y|θj) are known, the DM can theoretically be derived, but375
+its form is typically complex, requiring an advanced sampling algorithm. For this, we employ the Adap-376
+tive Rejection Metropolis Sampling (ARMS) algorithm [41], which enables repeated sampling from the377
+maximum distribution efficiently. Using ARMS, we obtain values for absorbance and absorption thresh-378
+old, and the right-hand side of eq. (1) is simplified to a comparison between these two quantities. If the379
+sampled absorbance exceeds the absorption threshold, the particleQ with absorption thresholdxi will be380
+directed towards locationj. Repeating this process across pairs of locations yields the relative frequency381
+of movement between each origin-destination pair, approximating the mobility patterns.382
+The sampled values are determined by both the family and parametrization of the benefit distribution.383
+A right-skewed distribution increases the likelihood of higher values, indicating greater attractiveness for384
+that location. Conversely, flatter distributions result in more homogeneous origin-destination (OD) ma-385
+trices, while sharply peaked distributions concentrate flows toward the most attractive nearby locations.386
+Given these foundational properties, the Gaussian distribution serves as a natural choice for the387
+benefit distribution, providing maximum entropy under constraints on mean and variance. However, the388
+optimal estimation of model parameters remains a challenging task, necessitating further refinement. In389
+the Discussion, we discuss potential strategies to address this issue. For the scenario analyses, we employ390
+a set of parameters designed to explore a range of different mobility scenarios.391
+References and Notes392
+[1] Rashid, M. F. A. & Ghani, I. A. The importance of internal migration in urban planning393
+process: The case study of klang valley region. International Journal of Social Planning394
+and Development (2011).395
+[2] Bernt, M. Migration and strategic urban planning: The case of leipzig. disP-The Planning396
+Review 55, 56–66 (2019).397
+[3] Ahsan, R., Karuppannan, S. & Kellett, J. Climate migration and urban planning system:398
+A study of bangladesh. Environmental Justice 4, 163–170 (2011).399
+20
+
+--- PAGE 21 ---
+[4] Sutradhar, U., Spearing, L. & Derrible, S. Depopulation and associated challenges for us400
+cities by 2100. Nature Cities 1, 51–61 (2024).401
+[5] Fagiolo, G. & Mastrorillo, M. Does human migration affect international trade? a402
+complex-network perspective. PloS one 9, e97331 (2014).403
+[6] Ebrahimpour, Z., Wan, W., Vel ´azquez Garc´ıa, J. L., Cervantes, O. & Hou, L. Analyzing404
+social-geographic human mobility patterns using large-scale social media data. ISPRS405
+International Journal of Geo-Information 9, 125 (2020).406
+[7] Arenas, A. et al. Modeling the spatiotemporal epidemic spreading of covid-19 and the407
+impact of mobility and social distancing interventions. Physical Review X 10, 041055408
+(2020).409
+[8] Tizzoni, M. et al. On the use of human mobility proxies for modeling epidemics. PLoS410
+computational biology 10, e1003716 (2014).411
+[9] Kraemer, M. U. et al. The effect of human mobility and control measures on the covid-19412
+epidemic in china. Science 368, 493–497 (2020).413
+[10] Pullano, G., Valdano, E., Scarpa, N., Rubrichi, S. & Colizza, V . Population mobility414
+reductions during covid-19 epidemic in france under lockdown.MedRxiv 29, 2020 (2020).415
+[11] P ´ecoud, A. & De Guchteneire, P. International migration, border controls and human416
+rights: Assessing the relevance of a right to mobility. Journal of Borderlands Studies 21,417
+69–86 (2006).418
+[12] Crawley, H. & Blitz, B. K. Common agenda or europe’s agenda? international protection,419
+human rights and migration from the horn of africa. Journal of Ethnic and Migration420
+Studies 45, 2258–2274 (2019).421
+21
+
+--- PAGE 22 ---
+[13] Costello, C. & Mann, I. Border justice: Migration and accountability for human rights422
+violations. German Law Journal 21, 311–334 (2020).423
+[14] Hyndman, J. The geopolitics of migration and mobility. Geopolitics 17, 243–255 (2012).424
+[15] Kramer, P. A. The geopolitics of mobility: Immigration policy and american global power425
+in the long twentieth century. The American Historical Review 123, 393–438 (2018).426
+[16] Basok, T. & Candiz, G. Containing mobile citizenship: changing geopolitics and its im-427
+pact on solidarity activism in mexico. Citizenship Studies 24, 474–492 (2020).428
+[17] Black, R. et al. The effect of environmental change on human migration. Global environ-429
+mental change 21, S3–S11 (2011).430
+[18] Ravenstein, E. G. The laws of migration. Journal of the statistical society of London 48,431
+167–235 (1885).432
+[19] Ravenstein, E. G. The laws of migration. Journal of the royal statistical society 52,433
+241–305 (1889).434
+[20] Schneider, M. Gravity models and trip distribution theory. Papers in Regional Science 5,435
+51–56 (1959).436
+[21] Tinbergen, J. Shaping the world economy; suggestions for an international economic437
+policy (Periodicals Service Co, 1962).438
+[22] Agasisti, T. & Dal Bianco, A. Determinants of college student migration in italy: Empiri-439
+cal evidence from a gravity approach. Available at SSRN 1063481 (2007).440
+[23] Barbosa, H. et al. Human mobility: Models and applications. Physics Reports 734, 1–74441
+(2018).442
+22
+
+--- PAGE 23 ---
+[24] Simini, F., Gonz ´alez, M. C., Maritan, A. & Barab´asi, A.-L. A universal model for mobility443
+and migration patterns. Nature 484, 96–100 (2012).444
+[25] Schwartz, A. Interpreting the effect of distance on migration. Journal of political economy445
+81, 1153–1169 (1973).446
+[26] Stouffer, S. A. Intervening opportunities: a theory relating mobility and distance. Ameri-447
+can sociological review 5, 845–867 (1940).448
+[27] Simini, F., Maritan, A. & N ´eda, Z. Human mobility in a continuum approach. PloS one449
+8, e60069 (2013).450
+[28] Kang, C., Liu, Y ., Guo, D. & Qin, K. A generalized radiation model for human mobility:451
+spatial scale, searching direction and trip constraint. PloS one 10, e0143500 (2015).452
+[29] Davis, K. F., Bhattachan, A., D’Odorico, P. & Suweis, S. A universal model for predicting453
+human migration under climate change: examining future sea level rise in bangladesh.454
+Environmental Research Letters13, 064030 (2018).455
+[30] Alis, C. M., Legara, E. F. & Monterola, C. Generalized radiation model for human migra-456
+tion. Scientific Reports (2021).457
+[31] Soneira, R. & Peebles, P. A computer model universe-simulation of the nature of the458
+galaxy distribution in the lick catalog. The Astronomical Journal 83, 845–860 (1978).459
+[32] Clauset, A., Shalizi, C. R. & Newman, M. E. Power-law distributions in empirical data.460
+SIAM review 51, 661–703 (2009).461
+[33] Hong, I., Jung, W.-S. & Jo, H.-H. Gravity model explained by the radiation model on a462
+population landscape. PloS one 14, e0218028 (2019).463
+23
+
+--- PAGE 24 ---
+[34] Xu, C., Kohler, T. A., Lenton, T. M., Svenning, J.-C. & Scheffer, M. Future of the hu-464
+man climate niche. Proceedings of the National Academy of Sciences 117, 11350–11355465
+(2020).466
+[35] Fratianni, S. & Acquaotta, F. The climate of italy. In Landscapes and landforms of Italy,467
+29–38 (Springer, 2017).468
+[36] Giordano, L. et al. Identification of areas sensitive to desertification in sicily region.469
+ENEA, Centro Ricerche Casaccia, Via Anguillarese301, 00060 (2002).470
+[37] Crescimanno, G. & Marcum, K. B. Irrigation, salinization and desertification. Evolution471
+of cropping systems as affected by climate change. Aracne Ed., Roma, Italy (2009).472
+[38] Thalheimer, L., Schwarz, M. P. & Pretis, F. Large weather and conflict effects on internal473
+displacement in somalia with little evidence of feedback onto conflict. Global Environ-474
+mental Change 79, 102641 (2023).475
+[39] Shu, E. G. et al. Integrating climate change induced flood risk into future population476
+projections. Nature Communications 14, 7870 (2023).477
+[40] Zeller, E. & Timmermann, A. The evolving three-dimensional landscape of human adap-478
+tation. Science Advances 10, eadq3613 (2024).479
+[41] Gilks, W. R., Best, N. G. & Tan, K. Adaptive rejection metropolis sampling within gibbs480
+sampling. Journal of the Royal Statistical Society: Series C (Applied Statistics) 44, 455–481
+472 (1995).482
+Data Availability. The data that support the findings of this study are available from public483
+repositories, without restrictions.484
+24
+
+--- PAGE 25 ---
+Code availability. The code used that support the findings of this study is available from the485
+corresponding author upon reasonable request.486
+Acknowledgements. MDD acknowledges partial financial support from the INFN grant “LIN-487
+COLN”, from MUR funding within the PRIN 2022 PNRR (DD n. 1214 31-07-2023) Project488
+no. P2022A889F, and from MUR funding within the FIS (DD n. 1219 31-07-2023) Project no.489
+FIS00000158.490
+Author contributions. Sebastian Raimondo (S.R.): designed and implemented the model,491
+performed numerical experiments, analyzed the data, and contributed to the interpretation of492
+the results. Manlio De Domenico (M.D.D.): conceptualized the study, designed the research493
+and the model, and contributed to the interpretation of the results. Both authors contributed494
+equally to the writing of the manuscript, critically reviewed the results, and approved the final495
+version.496
+Competing interests. The authors declare no competing interests.497
+Correspondence. Correspondence should be sent to sebastian.raimondo@feem.it,498
+manlio.dedomenico@unipd.it499
+25

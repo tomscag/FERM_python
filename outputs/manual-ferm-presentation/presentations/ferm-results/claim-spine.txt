@@ -1,0 +1,25 @@
+Thesis
+GDP is the strongest single feature for FERM in this test, but social connectedness is the only relational feature with a meaningful positive signal. The relational model is not falsified; the evidence says bilateral feature quality and normalization determine whether the extension helps.
+
+Audience
+PhD/research presentation audience familiar with migration models, radiation models, or empirical model comparison.
+
+One-line arc
+Start from the model question, show why normalization had to be validated, report out-of-sample results, then interpret GDP dominance and SCI's route-level value.
+
+Slide list
+1. Cover: GDP wins globally; SCI is the relational signal worth taking seriously. Proof: headline metrics.
+2. Model setup: RM, traditional FERM, and relational FERM differ only in Sigma structure. Proof: compact model comparison table.
+3. Normalization as specification: each feature has different scale and skew, so normalization is selected on validation. Proof: feature-group workflow.
+4. Validation: GDP and SCI are the only clearly positive validation patterns. Proof: validation tuning figure.
+5. Test summary: GDP leads; SCI second; common religion marginal; Abel and diplo weak. Proof: test summary bars.
+6. Main test metrics: exact metric table. Proof: native table.
+7. Prediction structure: all models remain close to RM, with GDP and SCI making useful shifts. Proof: prediction structure plot.
+8. Route-level errors: GDP and SCI improve many routes, but GDP shifts errors more consistently. Proof: route error scatter grid.
+9. Where features work: GDP and SCI help larger observed flows most; Abel is negative across bins. Proof: bin heatmap.
+10. Route winners: GDP wins the largest route share, but SCI wins a substantial subset. Proof: route-winner plot.
+11. Abel diagnostic: Abel zeroes many nontrivial routes, including large Gulf/South Asia corridors. Proof: zero-prediction table.
+12. Interpretation: relational FERM is feature-dependent; next step is a combined destination-plus-relational model. Proof: synthesis.
+
+Omission notes
+Distance is not treated as a feature in the comparison because distance is already part of the RM/FERM mechanism through the distance matrix.

@@ -1,0 +1,190 @@
+{
+  "artifact_name": "presentation_all_features",
+  "created_at": "2026-06-12T17:18:38",
+  "target_continent": "Asia",
+  "calibration_label": "validation_2019_h1",
+  "test_label": "test_2019_h2",
+  "relational_feature_year": 2019,
+  "distance_col": "dist",
+  "num_particles": 5000000,
+  "sigma_grid": [
+    0.5,
+    1.0,
+    2.0,
+    5.0,
+    8.0
+  ],
+  "model_specs": {
+    "gdp_ferm": {
+      "family": "traditional",
+      "feature_group": "gdp",
+      "label": "Node GDP per capita (log z-score)",
+      "kind": "destination",
+      "feature": "gdp_per_capita_2018",
+      "transform": "log_zscore",
+      "transform_description": "z-score of log1p(GDP per capita); this is the original traditional FERM specification"
+    },
+    "gdp_ferm_log_minmax": {
+      "family": "traditional",
+      "feature_group": "gdp",
+      "label": "Node GDP per capita (log min-max)",
+      "kind": "destination",
+      "feature": "gdp_per_capita_2018",
+      "transform": "log_minmax",
+      "transform_description": "log1p(GDP per capita), globally rescaled to [-1, 1]"
+    },
+    "gdp_ferm_log_rank": {
+      "family": "traditional",
+      "feature_group": "gdp",
+      "label": "Node GDP per capita (log rank)",
+      "kind": "destination",
+      "feature": "gdp_per_capita_2018",
+      "transform": "log_rank",
+      "transform_description": "log1p(GDP per capita), converted to percentile ranks in [-1, 1]"
+    },
+    "abel_option_b": {
+      "family": "relational",
+      "feature_group": "abel",
+      "label": "Corridor Migration Stock (log-ratio z-score)",
+      "kind": "abel",
+      "transform": "log_ratio_zscore",
+      "transform_description": "log((stock+eps)/(expected+eps)), z-scored across off-diagonal corridors; this is Option B"
+    },
+    "abel_option_b_log_ratio_minmax": {
+      "family": "relational",
+      "feature_group": "abel",
+      "label": "Corridor Migration Stock (log-ratio min-max)",
+      "kind": "abel",
+      "transform": "log_ratio_minmax",
+      "transform_description": "same expected-stock log-ratio, rescaled to [-1, 1]"
+    },
+    "abel_option_b_log_ratio_rank": {
+      "family": "relational",
+      "feature_group": "abel",
+      "label": "Corridor Migration Stock (log-ratio rank)",
+      "kind": "abel",
+      "transform": "log_ratio_rank",
+      "transform_description": "same expected-stock log-ratio, converted to percentile ranks in [-1, 1]"
+    },
+    "rel_scaled_sci_2021": {
+      "family": "relational",
+      "feature_group": "scaled_sci_2021",
+      "label": "Corridor Social Connectedness (min-max)",
+      "kind": "gravity_feature",
+      "feature": "scaled_sci_2021",
+      "direction": "positive",
+      "transform": "minmax",
+      "transform_description": "raw feature, globally rescaled to [-1, 1]"
+    },
+    "rel_scaled_sci_2021_log_minmax": {
+      "family": "relational",
+      "feature_group": "scaled_sci_2021",
+      "label": "Corridor Social Connectedness (log min-max)",
+      "kind": "gravity_feature",
+      "feature": "scaled_sci_2021",
+      "direction": "positive",
+      "transform": "log_minmax",
+      "transform_description": "log1p(feature), globally rescaled to [-1, 1]"
+    },
+    "rel_scaled_sci_2021_log_rank": {
+      "family": "relational",
+      "feature_group": "scaled_sci_2021",
+      "label": "Corridor Social Connectedness (log rank)",
+      "kind": "gravity_feature",
+      "feature": "scaled_sci_2021",
+      "direction": "positive",
+      "transform": "log_rank",
+      "transform_description": "log1p(feature), converted to global percentile ranks in [-1, 1]"
+    },
+    "rel_scaled_sci_2021_row_log_zscore": {
+      "family": "relational",
+      "feature_group": "scaled_sci_2021",
+      "label": "Corridor Social Connectedness (origin log-zscore)",
+      "kind": "gravity_feature",
+      "feature": "scaled_sci_2021",
+      "direction": "positive",
+      "transform": "row_log_zscore",
+      "transform_description": "for each origin, z-score log1p(feature) across possible destinations"
+    },
+    "rel_comrelig": {
+      "family": "relational",
+      "feature_group": "comrelig",
+      "label": "Corridor Common Religion (min-max)",
+      "kind": "gravity_feature",
+      "feature": "comrelig",
+      "direction": "positive",
+      "transform": "minmax",
+      "transform_description": "raw feature, globally rescaled to [-1, 1]"
+    },
+    "rel_comrelig_log_minmax": {
+      "family": "relational",
+      "feature_group": "comrelig",
+      "label": "Corridor Common Religion (log min-max)",
+      "kind": "gravity_feature",
+      "feature": "comrelig",
+      "direction": "positive",
+      "transform": "log_minmax",
+      "transform_description": "log1p(feature), globally rescaled to [-1, 1]"
+    },
+    "rel_comrelig_log_rank": {
+      "family": "relational",
+      "feature_group": "comrelig",
+      "label": "Corridor Common Religion (log rank)",
+      "kind": "gravity_feature",
+      "feature": "comrelig",
+      "direction": "positive",
+      "transform": "log_rank",
+      "transform_description": "log1p(feature), converted to global percentile ranks in [-1, 1]"
+    },
+    "rel_comrelig_row_log_zscore": {
+      "family": "relational",
+      "feature_group": "comrelig",
+      "label": "Corridor Common Religion (origin log-zscore)",
+      "kind": "gravity_feature",
+      "feature": "comrelig",
+      "direction": "positive",
+      "transform": "row_log_zscore",
+      "transform_description": "for each origin, z-score log1p(feature) across possible destinations"
+    },
+    "rel_diplo_disagreement": {
+      "family": "relational",
+      "feature_group": "diplo_disagreement",
+      "label": "Corridor Diplomatic Disagreement (min-max)",
+      "kind": "gravity_feature",
+      "feature": "diplo_disagreement",
+      "direction": "negative",
+      "transform": "minmax",
+      "transform_description": "raw feature, globally rescaled to [-1, 1]"
+    },
+    "rel_diplo_disagreement_log_minmax": {
+      "family": "relational",
+      "feature_group": "diplo_disagreement",
+      "label": "Corridor Diplomatic Disagreement (log min-max)",
+      "kind": "gravity_feature",
+      "feature": "diplo_disagreement",
+      "direction": "negative",
+      "transform": "log_minmax",
+      "transform_description": "log1p(feature), globally rescaled to [-1, 1]"
+    },
+    "rel_diplo_disagreement_log_rank": {
+      "family": "relational",
+      "feature_group": "diplo_disagreement",
+      "label": "Corridor Diplomatic Disagreement (log rank)",
+      "kind": "gravity_feature",
+      "feature": "diplo_disagreement",
+      "direction": "negative",
+      "transform": "log_rank",
+      "transform_description": "log1p(feature), converted to global percentile ranks in [-1, 1]"
+    },
+    "rel_diplo_disagreement_row_log_zscore": {
+      "family": "relational",
+      "feature_group": "diplo_disagreement",
+      "label": "Corridor Diplomatic Disagreement (origin log-zscore)",
+      "kind": "gravity_feature",
+      "feature": "diplo_disagreement",
+      "direction": "negative",
+      "transform": "row_log_zscore",
+      "transform_description": "for each origin, z-score log1p(feature) across possible destinations"
+    }
+  }
+}

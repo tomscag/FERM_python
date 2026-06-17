@@ -1,0 +1,24 @@
+Slide size: 16:9 widescreen, 13.333 x 7.5 inches.
+
+Background: warm paper (#FBFAF6). Main text in deep ink (#17202A).
+
+Typography: Aptos / Aptos Display. Claim titles 29-35 pt. Section labels 8-9 pt uppercase. Body 12-17 pt. Captions 8-10 pt.
+
+Palette:
+- Ink: #17202A
+- Slate: #65727C
+- Rule: #CBD0D2
+- GDP / destination: #B65C2A
+- Relational / corridor: #2F6F73
+- Neutral / RM: #3F4650
+- Negative diagnostic: #B54848
+- Soft fills: #F1DDD2, #DCEBE8, #ECEFF1
+
+Grammar:
+- Use native tables and diagrams for model concepts.
+- Use notebook figures as embedded proof objects for empirical results.
+- Every slide should have a claim title, not a topic title.
+- Avoid generic card grids; use simple proof objects and side interpretation rails.
+
+Source footer:
+Model note, src/ferm/model.py, presentation_ferm_results.ipynb.

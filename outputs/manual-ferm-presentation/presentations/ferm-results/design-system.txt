@@ -1,0 +1,24 @@
+Slide size: 16:9 widescreen, 13.333 x 7.5 inches.
+
+Background: warm paper (#FBFAF6) with deep ink text (#18202A). Avoid dashboard-gray dominance.
+
+Typography: Aptos/Arial fallback. Large claim titles use 30-36 pt; body text 14-18 pt; captions 9-11 pt.
+
+Palette:
+- Ink: #18202A for main text and rules.
+- Muted teal: #2F6F73 for relational/SCI emphasis.
+- Clay: #B65C2A for GDP/destination emphasis.
+- Slate: #64717D for secondary text.
+- Pale teal: #DCEBE8 and pale clay #F1DDD2 for soft fills.
+
+Chart grammar:
+Notebook charts are embedded as proof images to preserve exact output. Narrative slides use native editable tables, bars, and callouts.
+
+Layout families:
+Cover with metric rail; model comparison table; process flow; full-bleed figure plus insight rail; exact metric table; diagnostic list; conclusion slide.
+
+Footer grammar:
+Small page number and source note. Source: presentation_ferm_results.ipynb, test_2019_h2 unless otherwise stated.
+
+Banned motifs:
+No decorative orbs, no generic card-grid dashboard, no fake logos, no unnecessary rounded boxes.

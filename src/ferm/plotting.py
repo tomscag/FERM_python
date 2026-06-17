@@ -396,7 +396,12 @@ def plot_ferm_vs_rm_route_change(
     metric="abs_error",
     label="all",
     xlim=None,
-    ylim=None
+    ylim=None,
+    benchmark_label="RM",
+    model_label="FERM",
+    min_linewidth=0.7,
+    max_linewidth=2.4,
+    show=True,
 ):
     df = compare_rm_vs_ferm_routes(comp_rm, comp_ferm).copy()
     df = add_coords_to_routes(df, country_geo)
@@ -425,33 +430,33 @@ def plot_ferm_vs_rm_route_change(
 
     def classify_row(row):
         if row[score_col] > 0:
-            # Better than RM -> classify using RM sign
+            # Better than benchmark -> classify using benchmark residual sign.
             if row["residual_rm"] < 0:
-                return "Better / RM underestimates"
+                return f"Better / {benchmark_label} underestimates"
             elif row["residual_rm"] > 0:
-                return "Better / RM overestimates"
+                return f"Better / {benchmark_label} overestimates"
             else:
-                return "Better / RM exact"
+                return f"Better / {benchmark_label} exact"
         elif row[score_col] < 0:
-            # Worse than RM -> classify using FERM sign
+            # Worse than benchmark -> classify using model residual sign.
             if row["residual_ferm"] > 0:
-                return "Worse / FERM overestimates"
+                return f"Worse / {model_label} overestimates"
             elif row["residual_ferm"] < 0:
-                return "Worse / FERM underestimates"
+                return f"Worse / {model_label} underestimates"
             else:
-                return "Worse / FERM exact"
+                return f"Worse / {model_label} exact"
         else:
             return "No change"
 
     plot_df["route_class"] = plot_df.apply(classify_row, axis=1)
 
     color_map = {
-        "Better / RM underestimates": "tab:blue",
-        "Better / RM overestimates": "tab:green",
-        "Worse / FERM overestimates": "tab:red",
-        "Worse / FERM underestimates": "tab:orange",
-        "Better / RM exact": "tab:blue",
-        "Worse / FERM exact": "tab:red",
+        f"Better / {benchmark_label} underestimates": "tab:blue",
+        f"Better / {benchmark_label} overestimates": "tab:green",
+        f"Worse / {model_label} overestimates": "tab:red",
+        f"Worse / {model_label} underestimates": "tab:orange",
+        f"Better / {benchmark_label} exact": "tab:blue",
+        f"Worse / {model_label} exact": "tab:red",
         "No change": "gray",
     }
 
@@ -469,7 +474,7 @@ def plot_ferm_vs_rm_route_change(
         x2, y2 = row["lon_to"], row["lat_to"]
 
         strength = abs(row[score_col])
-        lw = 1 + 5 * (strength / max_scale)
+        lw = min_linewidth + (max_linewidth - min_linewidth) * (strength / max_scale)
 
         color = color_map[row["route_class"]]
         rad = 0.15 if row[score_col] > 0 else -0.15
@@ -491,14 +496,14 @@ def plot_ferm_vs_rm_route_change(
         ax.scatter([x2], [y2], s=14, color="black", zorder=3)
 
     legend_elements = [
-        Line2D([0], [0], color="tab:blue", lw=2, label="Better than RM / RM underestimates"),
-        Line2D([0], [0], color="tab:green", lw=2, label="Better than RM / RM overestimates"),
-        Line2D([0], [0], color="tab:red", lw=2, label="Worse than RM / FERM overestimates"),
-        Line2D([0], [0], color="tab:orange", lw=2, label="Worse than RM / FERM underestimates"),
+        Line2D([0], [0], color="tab:blue", lw=2, label=f"Better than {benchmark_label} / {benchmark_label} underestimates"),
+        Line2D([0], [0], color="tab:green", lw=2, label=f"Better than {benchmark_label} / {benchmark_label} overestimates"),
+        Line2D([0], [0], color="tab:red", lw=2, label=f"Worse than {benchmark_label} / {model_label} overestimates"),
+        Line2D([0], [0], color="tab:orange", lw=2, label=f"Worse than {benchmark_label} / {model_label} underestimates"),
     ]
     ax.legend(handles=legend_elements, loc="lower left")
 
-    ax.set_title(f"FERM vs RM route changes ({title_metric}) — {label}")
+    ax.set_title(f"{model_label} vs {benchmark_label} route changes ({title_metric}) — {label}")
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
 
@@ -508,7 +513,8 @@ def plot_ferm_vs_rm_route_change(
         ax.set_ylim(*ylim)
 
     plt.tight_layout()
-    plt.show()
+    if show:
+        plt.show()
 
     return plot_df[[
         "country_from", "country_to",

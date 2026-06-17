@@ -1,0 +1,403 @@
+
+
+===== PAGE 1 =====
+A Model Note on a Relational Extension of
+the FERM
+Keeping the Radiation Mechanism, Extending the Attractiveness Structure
+Contents
+1 Purpose of this note 2
+2 Common radiation-style mechanism 2
+3 Latent thresholds and offers 2
+4 A common attractiveness matrix 3
+5 Radiation Model 3
+6 Traditional FERM 4
+7 Relational FERM 5
+8 Combined model 6
+9 Absorption probability 6
+10 Interpretation ofΣ ij 7
+11 Normalization and renormalization issues 8
+11.1 Why normalization is needed . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+11.2 Sign orientation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+11.3 Centering . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+11.4 Heavy-tailed variables . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+11.5 Missing values . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+11.6 Split comparability . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+11.7 Renormalization in the combined model . . . . . . . . . . . . . . . . . . . 9
+12 Summary of variants 10
+13 Takeaway 11
+1
+
+
+===== PAGE 2 =====
+1 Purpose of this note
+This note clarifies a possiblerelationalextension of the Feature-Enriched Radiation Model
+(FERM). The goal is to keep theradiation mechanismunchanged while extending the way
+attractiveness is represented.
+The key principle is the following:
+The mobility mechanism remains the same as in the Radiation Model and in
+the traditional FERM: particles leave an origin, inspect destinations in order
+of increasing distance, and are absorbed by the first destination whose offer
+exceeds their threshold. What changes across model variants is only the way
+the latent threshold and offer distributions are centered.
+The main motivation is that in many empirical settings attractiveness is not only destination-
+specific, but alsocorridor-specific: the same destination may be more attractive from
+one origin than from another because of language similarity, visa openness, diplomatic
+relations, diaspora networks, historical ties or other bilateral factors.
+2 Common radiation-style mechanism
+Let i denote an origin and j a destination. Let mi and nj be the populations of origin and
+destination. Let
+Lij ={k:d ik < d ij}
+be the set of destinations closer toithanj.
+The radiation-style mechanism is common to all model variants:
+1. A particle is emitted from origini.
+2. The particle carries a latent threshold Ti, representing the minimum benefit required
+to leave origini.
+3. Destinations are scanned in increasing order of distance fromi.
+4. Each destination generates a latent offer.
+5. The particle is absorbed by the first destination whose offer exceeds its threshold.
+Thus, the movement probability retains the sequential absorption form
+P(i→j) =p ij
+Y
+k∈Lij
+(1−p ik),(1)
+where pij is the probability that destinationj beats the threshold once all closer destinations
+have failed.
+3 Latent thresholds and offers
+We consider latent Gaussian benefit variables. The threshold and the offer are generated
+as maxima of independent draws:
+Ti ∼max
+1,...,mi
+N(τ i, σ2), B ij ∼max
+1,...,nj
+N(β ij, σ2).(2)
+2
+
+
+===== PAGE 3 =====
+Here:
+•τ i is the center of the threshold-side distribution at origini,
+•β ij is the center of the offer-side distribution for corridor (i, j),
+•σ 2 is variance parameter.
+A threshold Ti can be interpreted as a reservation level: a larger threshold makes the
+migrant harder to attract. An offer Bij can be interpreted as the perceived benefit of
+destinationjfrom origini.
+4 A common attractiveness matrix
+The most convenient way to unify the model family is through a matrix
+Σ= (Σ ij)i,j∈C ,Σ ij ∈R,
+defined on the set of countriesC.
+We interpret Σij as the attractiveness parameter attached to corridor ( i, j). The diagonal
+entries play a special role:
+τi = Σii, β ij = Σij.
+Therefore the threshold and offer specification becomes
+Ti ∼max
+1,...,mi
+N(Σ ii, σ2
+T ), B ij ∼max
+1,...,nj
+N(Σ ij, σ2
+B).(3)
+This notation is useful because all model variants can be described by imposing different
+structures on the same matrixΣ.
+5 Radiation Model
+The Radiation Model (RM) is recovered as the baseline case in which attractiveness is
+completely neutral. In terms of the common matrix formulation, this means
+Σij = 0 for alli, j.(4)
+Therefore both the threshold and the offer distributions are centered at zero:
+Ti ∼max
+1,...,mi
+N(0, σ 2), B ij ∼max
+1,...,nj
+N(0, σ 2).
+In this case, no exogenous attractiveness term is introduced. The model is driven only by:
+•the population of the originm i,
+•the population of the destinationn j,
+•the sequential ordering of destinations by distance.
+3
+
+
+===== PAGE 4 =====
+Figure 1: Radiation Model benefit distribution. Since no exogenous attractiveness feature is
+introduced, all origins and destinations share the same Gaussian latent benefit distribution,
+centered at zero with variance σ2. The dashed vertical lines indicate example sampled
+thresholds, illustrating that the RM has no location-specific shift in attractiveness.
+Thus, the RM corresponds to the purely population-based benchmark in which all locations
+and corridors share the same latent benefit distribution. The probability differences across
+destinations arise only because:
+1. origins and destinations have different population sizes,
+2. destinations are encountered at different distances from the origin,
+3. closer destinations may absorb particles before farther ones are reached.
+Within the matrix framework, the RM is therefore the neutral reference case:
+RM⇐ ⇒Σ=0.
+This interpretation is useful because it shows that the traditional FERM and the relational
+FERM do not alter the radiation mechanism itself. They only replace the zero matrix by
+a structured attractiveness matrix.
+6 Traditional FERM
+In the traditional FERM, attractiveness is destination-specific. Each destination j has a
+node-level featureµ j. This implies
+Σij =µ j for alli, j.(5)
+Hence all rows ofΣare identical, and in particular
+Σii =µ i.
+4
+
+
+===== PAGE 5 =====
+The threshold and offer become
+Ti ∼max
+1,...,mi
+N(µ i, σ2
+T ), B ij ∼max
+1,...,nj
+N(µ j, σ2
+B).
+Thus the same destination j generates the same offer distribution regardless of origin,
+while different origins can have different thresholds. See fig. 2
+Figure 2: Traditional FERM benefit distributions. Each destination j has a node-specific
+attractiveness µj, which shifts its Gaussian offer distribution while the variance σ2 is
+shared. The dashed vertical lines indicate example sampled maxima drawn from the
+corresponding distributions.
+7 Relational FERM
+In the relational extension, attractiveness becomes corridor-specific. Let δij denote a
+bilateral feature associated with corridor (i, j). The simplest relational specification is
+Σii = 0,Σ ij =δ ij fori̸=j.(6)
+This yields
+Ti ∼max
+1,...,mi
+N(0, σ 2
+T ), B ij ∼max
+1,...,nj
+N(δ ij, σ2
+B).
+This means:
+•the threshold is neutral with respect to the relational feature,
+•all bilateral attractive or repulsive information is encoded on the offer side.
+A positive δij shifts the offer distribution upward, increasing the probability that corridor
+(i, j) absorbs particles. A negativeδ ij shifts it downward.
+This is the simplest corridor-based extension that preserves the radiation mechanism
+unchanged.
+5
+
+
+===== PAGE 6 =====
+Figure 3: Illustration of corridor-specific attractiveness in relational FERM. The blue
+distribution represents the origin-side threshold distribution, while the green and red
+distributions illustrate corridor-specific offer distributions shifted by the attractiveness
+terms Σ i→j. A negative corridor (in green) effect shifts the offer leftward and reduces
+absorption probability, whereas a positive corridor (in red) effect shifts it rightward and
+increases absorption probability.
+8 Combined model
+A more general model may contain both node-level and corridor-level information. In the
+present note we donotcommit to a unique composition rule such as
+Σij =µ j +δ ij,
+because this may or may not be the appropriate specification.
+Instead, we define a combined model more generally as any specification in which:
+•the diagonal preserves the origin baseline,
+Σii =µ i,
+• the off-diagonal entries Σ ij for i̸ = j encode both destination-level and corridor-level
+information through a chosen composition rule.
+This rule could be additive, multiplicative or another transformation depending on the
+empirical application and interpretation of the features.
+9 Absorption probability
+Let FT (· | Σii) denote the CDF of a single Gaussian draw on the threshold side, and let
+FB(· | Σij) denote the CDF of a single Gaussian draw on the offer side. Let Uij = Ti −B ij,
+and letF (ij)
+U be the CDF ofU ij.
+6
+
+
+===== PAGE 7 =====
+Then the absorption probability can be written schematically as
+pij =
+Z
+ST
+Z
+SB
+
+mi FT (t|Σ ii)mi−1 dFT (t|Σ ii)
+dt
+
+| {z }
+pdf of threshold maximum
+×
+
+nj FB(b|Σ ij)nj −1 dFB(b|Σ ij)
+db
+
+| {z }
+pdf of offer maximum
+×
+
+Y
+k∈Lij
+ 
+1−F (ik)
+U (t−b k)
+
+
+ F (ij)
+U (t−b)
+| {z }
+sequential absorption structure
+dt db.
+(7)
+The exact expression depends on the chosen supports and distributional assumptions, but
+the important point is conceptual:
+The absorption mechanism does not change across variants; only the centering
+parameters Σii and Σij change.
+10 Interpretation ofΣ ij
+The sign of Σ ij should be interpretable:
+•Σ ij >0: corridor (i, j) is more attractive than neutral,
+•Σ ij = 0: neutral corridor,
+•Σ ij <0: corridor (i, j) is more repulsive than neutral.
+Examples of attractive bilateral signals include:
+•social connectedness,
+•common language or religion similarity,
+•visa openness,
+•diaspora networks,
+•strong trade ties.
+Examples of repulsive bilateral signals include:
+•diplomatic disagreement,
+•political tension,
+•closed borders,
+•historical hostility,
+•large generalized migration frictions.
+7
+
+
+===== PAGE 8 =====
+11 Normalization and renormalization issues
+This section is crucial. Bilateral features cannot be inserted directly into Σ ij without
+transformation.
+11.1 Why normalization is needed
+Raw bilateral features differ in:
+•units of measurement,
+•numerical range,
+•skewness,
+•sign interpretation,
+•missing-data pattern.
+For example, trade flows can span many orders of magnitude, while religious similarity may
+already lie in [0 , 1]. Without normalization, the Gaussian means would not be comparable
+across different empirical choices ofδ ij.
+11.2 Sign orientation
+Some features are attractive when large, others are repulsive when large. Therefore each
+empirical bilateral featureδ raw
+ij should first be oriented into a signed score:
+δoriented
+ij =
+(
++δraw
+ij ,if higher values mean more attraction,
+−δraw
+ij ,if higher values mean more repulsion.
+This ensures that the sign of Σ ij has a consistent interpretation.
+11.3 Centering
+If we define
+Σij >0 attractive,Σ ij = 0 neutral,Σ ij <0 repulsive,
+then transformations that map values to [0 , 1] are conceptually problematic, because zero
+no longer means neutral.
+For a relational FERM with meaningful attraction/repulsion semantics, centering around
+zero is preferable. Suitable choices include:
+•z-score normalization,
+•affine scaling to [−1,1],
+•centered rank transforms.
+8
+
+
+===== PAGE 9 =====
+11.4 Heavy-tailed variables
+Some bilateral features, such as trade or social connectedness, are highly right-skewed. For
+such variables a useful pipeline is:
+1. apply a monotone compression such as log(1 +x),
+2. orient the sign,
+3. center and scale.
+This prevents a few extreme corridors from dominating the Gaussian mean shifts.
+11.5 Missing values
+Missing bilateral information is not trivial. Replacing missing values by zero implicitly
+assumes that the corridor is neutral. Replacing them by the minimum observed value
+assumes that the corridor is maximally unattractive. Both are substantive modeling
+assumptions.
+Therefore missing-value treatment should be discussed explicitly, because it affects the
+meaning of Σ ij.
+11.6 Split comparability
+Normalization should be performed consistently across validation and test sets. If the
+transformation is estimated separately on each split, the same raw corridor may receive
+different normalized values in different samples. This makes model comparison difficult.
+A cleaner procedure is:
+•fit the normalization rule on a fixed reference sample,
+•apply the same transformation unchanged to all splits.
+11.7 Renormalization in the combined model
+The combined model raises an additional issue: destination-level and corridor-level features
+may live on different scales. If they are combined into a single Σij, one must decide whether
+the combination happens:
+•before normalization,
+•after separate normalization,
+•after separate weighting,
+•or through a different joint transformation.
+This is one reason why the present note does not impose a unique composition rule for the
+combined variant.
+9
+
+
+===== PAGE 10 =====
+12 Summary of variants
+The four model variants can be understood within the same matrix framework. In all
+cases, the mobility mechanism is unchanged:
+Ti ∼max
+1,...,mi
+N(Σ ii, σ2), B ij ∼max
+1,...,nj
+N(Σ ij, σ2),
+and the only difference lies in the structure of the attractiveness matrixΣ.
+Variant Matrix structure Interpretation
+Radiation Model Σii = 0,Σ ij = 0 All thresholds and offers are
+centered at zero. There is
+no feature-based attractiveness:
+mobility is driven only by popu-
+lation and distance through the
+radiation mechanism.
+Traditional
+FERM
+Σii =µ i,Σ ij =µ j The threshold at origin i is
+shifted by the origin attractive-
+ness µi, and the offer at destina-
+tion j is shifted by the destina-
+tion attractiveness µj. All rows
+are identical, so the same desti-
+nation looks equally attractive
+from every origin.
+Relational
+FERM
+Σii = 0,Σ ij =δ ij Thresholds are kept neutral,
+while the offer becomes corridor-
+specific. The attractiveness of
+destination j now depends on
+the origin i, so bilateral attrac-
+tive or repulsive effects act di-
+rectly on the offer side.
+Combined model Σii =µ i,Σ ij = ... The diagonal preserves the
+origin baseline, while the
+off-diagonal entries combine
+destination-level and corridor-
+level information. The exact
+form of the composition is left
+open and may depend on the
+empirical application.
+Table 1: Unified representation of the Radiation Model, the traditional FERM, the
+relational FERM, and the combined model through the attractiveness matrixΣ.
+In this formulation, the RM appears as the neutral benchmark, the traditional FERM as
+the destination-specific case, the relational FERM as the corridor-specific case and the
+combined model as the most general extension.
+10
+
+
+===== PAGE 11 =====
+13 Takeaway
+The main contribution of this formulation is conceptual clarity:
+1. The radiation mechanism remains unchanged.
+2. The model family is unified through a single attractiveness matrixΣ.
+3. The diagonal entries Σ ii determine threshold centers.
+4. The off-diagonal entries Σ ij determine corridor-specific offer centers.
+5. The main unresolved issue in practice is not the mechanism itself, but the empirical
+construction and normalization of Σ ij.
+In this sense, the relational extension is not a different mobility process, but a different
+parameterization of attractiveness within the same radiation-style absorption framework.
+11

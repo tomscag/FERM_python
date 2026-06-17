@@ -9,7 +9,7 @@ import pandas as pd
 import pycountry
 from scipy import stats
 
-from src.ferm.utils import iso3_to_country
+from .utils import iso3_to_country
 
 
 # ---------------------------------------------------------------------------
@@ -845,3 +845,15 @@ def predicted_flows_from_probabilities(
     )
 
     return comparison
+
+
+def run_parallel(*args, **kwargs):
+    """
+    Compatibility wrapper for the legacy raster FERM API.
+
+    The implementation lives in `ferm.cluster_runner` and returns a row-normalized
+    conditional destination-probability matrix.
+    """
+    from ferm.cluster_runner import run_parallel as _run_parallel
+
+    return _run_parallel(*args, **kwargs)
