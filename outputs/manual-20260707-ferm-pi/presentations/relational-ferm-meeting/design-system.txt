@@ -1,0 +1,32 @@
+Slide size
+1280 x 720 px.
+
+Palette
+Warm paper background #F7F3EC, dark ink #102132, muted grey #5B6770.
+Accent colors: blue #2B7BB9, teal #2FA79B, gold #D9A441, red #C84646.
+
+Typography
+Aptos Display for claims/titles.
+Aptos for body and labels.
+Aptos Mono only for formula blocks.
+
+Layout grammar
+Editorial research deck. Each slide has:
+- thin dark top rule;
+- small kicker;
+- claim-style title;
+- one dominant proof object or decision grid;
+- concise callouts;
+- quiet footer and page marker.
+
+Chart grammar
+Use generated analysis figures as embedded proof objects. Surround them with plain white panels and thin rules.
+
+Container grammar
+Rectangular callouts with 7px color stripe. No rounded cards.
+
+Source policy
+All images are project-generated outputs. No external logos or identity assets.
+
+Known constraints
+Charts are embedded as images. Text/callouts are editable in PowerPoint.

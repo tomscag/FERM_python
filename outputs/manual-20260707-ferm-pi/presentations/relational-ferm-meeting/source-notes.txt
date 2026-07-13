@@ -1,0 +1,7 @@
+Sources used
+- Toy model figures from outputs/toy_model_ferm.
+- Empirical ranking and scatter figures from outputs/clean_figures/presentation_all_features.
+- Normalization sensitivity from outputs/presentation_figures.
+- SCI distribution and MDL figures from outputs/combined_gdp_sci_figures.
+
+No external identity assets, logos, or web sources were used.

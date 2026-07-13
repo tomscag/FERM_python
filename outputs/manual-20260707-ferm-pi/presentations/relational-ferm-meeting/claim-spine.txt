@@ -1,0 +1,33 @@
+Thesis
+FERM passes a controlled relational sanity check; on real data the central bottleneck is not only performance, but how empirical features are normalized, combined, and charged as model complexity.
+
+Audience
+PhD supervisor / PI meeting.
+
+One-line arc
+Start from a controlled toy model to validate the mechanism, move to empirical results, then frame normalization and description length as the next methodological decisions.
+
+Slides
+1. Relational FERM: il meccanismo funziona, il nodo empirico è la normalizzazione.
+   Proof: core thesis and MDL formula.
+2. La storia è in tre passaggi.
+   Proof: narrative roadmap.
+3. Nel toy model la vera matrice relazionale è nota.
+   Proof: synthetic network and Sigma* figure.
+4. Quando il segnale relazionale esiste davvero, FERM lo recupera.
+   Proof: toy test and robustness figures.
+5. La calibrazione sceglie sigma prima del test.
+   Proof: empirical calibration curves.
+6. Sui dati reali il miglioramento esiste, ma è più misto.
+   Proof: empirical ranking across metrics.
+7. La normalizzazione non è neutrale.
+   Proof: normalization sensitivity and SCI distribution.
+8. Nel codice la description length è codelength multinomiale più costo del modello.
+   Proof: formula workflow for p_ij, L(D|M), L(M).
+9. Description length asks whether the improvement is worth the model cost.
+   Proof: MDL figure and equation.
+10. Decisioni da prendere.
+   Proof: action grid for PI discussion.
+
+Omissions
+No invented empirical metrics. Empirical slides use already generated figures from the project outputs.

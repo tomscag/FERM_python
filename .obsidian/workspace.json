@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Abel Sigma Normalization Options for FERM.md",
+                "file": "notes/mdl_model_cost_reasoning.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Abel Sigma Normalization Options for FERM"
+              "title": "mdl_model_cost_reasoning"
             }
           }
         ]
@@ -185,6 +185,7 @@
   },
   "active": "400c45cd5d5423fa",
   "lastOpenFiles": [
+    "Abel Sigma Normalization Options for FERM.md",
     "outputs/combined_gdp_sci_figures/01a_sci_raw_vs_minmax_distribution.png",
     "outputs/combined_gdp_sci_figures/01a_sci_raw_vs_minmax_distribution_summary.csv",
     "outputs/simulation_artifacts/combined_gdp_sci/sigma_diagnostics.csv",
@@ -197,7 +198,6 @@
     "outputs/clean_figures/combined_gdp_sci/09_destination_inflow_ranking.png",
     "outputs/clean_figures/combined_gdp_sci/08_top_predicted_corridors.png",
     "outputs/clean_figures/presentation_all_features/09_destination_inflow_ranking.png",
-    "outputs/clean_figures/presentation_all_features/08_top_predicted_corridors.png",
     "notes/FERM_Raimondo_DeDomenico_extracted.txt",
     "outputs/clean_figures/presentation_all_features",
     "outputs/simulation_artifacts/presentation_all_features/metadata.json",
@@ -209,7 +209,6 @@
     "notes/mdl_model_cost_reasoning.md",
     "FERM_10062026_speaker_notes.md",
     "outputs/manual-ferm-presentation/presentations/relational-ferm-full/deck_content.md",
-    "outputs/manual-ferm-presentation/presentations/ferm-results/deck_content.md",
-    "Abel Sigma Normalization Options for FERM.md"
+    "outputs/manual-ferm-presentation/presentations/ferm-results/deck_content.md"
   ]
 }

@@ -1,0 +1,14 @@
+Slide rhythm
+1. Cover thesis.
+2. Three-step roadmap.
+3. Large two-panel toy setup figure with right callout rail.
+4. Toy test summary plus robustness.
+5. Empirical calibration figure plus interpretation rail.
+6. Empirical ranking figure plus interpretation rail.
+7. Two normalization proof figures plus three bottom callouts.
+8. Description-length formula workflow.
+9. MDL proof figure plus formula/callouts.
+10. Decision grid.
+
+Macro-layout diversity
+Cover, roadmap, figure+rail, mixed proof, figure+rail, figure+rail, dual figures, formula workflow, figure+formula, decision grid.
