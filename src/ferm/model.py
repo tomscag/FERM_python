@@ -506,7 +506,8 @@ class RM:
     """
 
     def __init__(self,
-                 nodes: pd.DataFrame, flows: pd.DataFrame,
+                 nodes: pd.DataFrame,
+                 flows: pd.DataFrame,
                  eps: float = DEFAULT_EPS,
                  distance_matrix: Optional[pd.DataFrame | np.ndarray] = None) -> None:
         """

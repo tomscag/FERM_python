@@ -15,15 +15,15 @@ EPS: float = 1.0
 def summarize_comparison(comp, label):
     return {
         "period": label, "pairs": len(comp),
-        "observed_total": comp["total_migrants"].sum(), "predicted_total": comp["predicted_migrants"].sum(),
-        "MAE": np.mean(np.abs(comp["predicted_migrants"] - comp["total_migrants"])),
-        "RMSE": np.sqrt(np.mean((comp["predicted_migrants"] - comp["total_migrants"])**2)),
-        "Bias_pred_minus_obs": np.mean(comp["predicted_migrants"] - comp["total_migrants"]),
-        "Pearson": comp["total_migrants"].corr(comp["predicted_migrants"], method="pearson"),
-        "Spearman": comp["total_migrants"].corr(comp["predicted_migrants"], method="spearman"),
-        "Pearson_log": np.log10(comp["total_migrants"] + 1).corr(np.log10(comp["predicted_migrants"] + 1), method="pearson"),
-        "Spearman_log": np.log10(comp["total_migrants"] + 1).corr(np.log10(comp["predicted_migrants"] + 1), method="spearman"),
-        "Median_abs_log_ratio": np.median(np.abs(np.log10((comp["predicted_migrants"] + 1) / (comp["total_migrants"] + 1))))
+        "observed_total": comp["num_migrants"].sum(), "predicted_total": comp["predicted_migrants"].sum(),
+        "MAE": np.mean(np.abs(comp["predicted_migrants"] - comp["num_migrants"])),
+        "RMSE": np.sqrt(np.mean((comp["predicted_migrants"] - comp["num_migrants"])**2)),
+        "Bias_pred_minus_obs": np.mean(comp["predicted_migrants"] - comp["num_migrants"]),
+        "Pearson": comp["num_migrants"].corr(comp["predicted_migrants"], method="pearson"),
+        "Spearman": comp["num_migrants"].corr(comp["predicted_migrants"], method="spearman"),
+        "Pearson_log": np.log10(comp["num_migrants"] + 1).corr(np.log10(comp["predicted_migrants"] + 1), method="pearson"),
+        "Spearman_log": np.log10(comp["num_migrants"] + 1).corr(np.log10(comp["predicted_migrants"] + 1), method="spearman"),
+        "Median_abs_log_ratio": np.median(np.abs(np.log10((comp["predicted_migrants"] + 1) / (comp["num_migrants"] + 1))))
     }
 
 def plot_timeseries_migrants(df):
@@ -67,11 +67,11 @@ def plot_timeseries_migrants(df):
 def prepare_comp_df(comp):
     out = comp.copy()
     if "residual" not in out.columns:
-        out["residual"] = out["predicted_migrants"] - out["total_migrants"]
+        out["residual"] = out["predicted_migrants"] - out["num_migrants"]
     if "abs_error" not in out.columns:
         out["abs_error"] = np.abs(out["residual"])
     if "log_ratio" not in out.columns:
-        out["log_ratio"] = np.log10((out["predicted_migrants"] + EPS) / (out["total_migrants"] + EPS))
+        out["log_ratio"] = np.log10((out["predicted_migrants"] + EPS) / (out["num_migrants"] + EPS))
     if "abs_log_ratio" not in out.columns:
         out["abs_log_ratio"] = np.abs(out["log_ratio"])
     return out
@@ -79,7 +79,7 @@ def prepare_comp_df(comp):
 def compare_rm_vs_ferm_routes(comp_rm, comp_ferm):
     rm = prepare_comp_df(comp_rm).copy()
     ferm = prepare_comp_df(comp_ferm).copy()
-    keep_cols = ["country_from", "country_to", "country_from_name", "country_to_name", "total_migrants", "predicted_migrants", "residual", "abs_error", "log_ratio", "abs_log_ratio"]
+    keep_cols = ["country_from", "country_to", "country_from_name", "country_to_name", "num_migrants", "predicted_migrants", "residual", "abs_error", "log_ratio", "abs_log_ratio"]
     rm = rm[keep_cols].rename(columns={"predicted_migrants": "predicted_rm", "residual": "residual_rm", "abs_error": "abs_error_rm", "log_ratio": "log_ratio_rm", "abs_log_ratio": "abs_log_ratio_rm"})
     ferm = ferm[keep_cols].rename(columns={"predicted_migrants": "predicted_ferm", "residual": "residual_ferm", "abs_error": "abs_error_ferm", "log_ratio": "log_ratio_ferm", "abs_log_ratio": "abs_log_ratio_ferm"})
     merged = rm.merge(ferm[["country_from", "country_to", "predicted_ferm", "residual_ferm", "abs_error_ferm", "log_ratio_ferm", "abs_log_ratio_ferm"]], on=["country_from", "country_to"], how="inner")
@@ -111,7 +111,14 @@ def add_coords_to_routes(df, country_geo):
 
 
 
-def plot_rm_vs_ferm_error_scatter(comp_rm, comp_ferm, label="all", metric="abs_log", niche_type="gdp_per_capita_2018", continent=None):
+def plot_rm_vs_ferm_error_scatter(
+        comp_rm, 
+        comp_ferm, 
+        period="all", 
+        metric="abs_log", 
+        niche_type="gdp_per_capita_2018", 
+        continent=None
+):
     df = compare_rm_vs_ferm_routes(comp_rm, comp_ferm).copy()
     if metric == "abs_error":
         xcol, ycol, xlab, ylab = "abs_error_rm", "abs_error_ferm", "RM absolute error", "FERM absolute error"
@@ -119,10 +126,10 @@ def plot_rm_vs_ferm_error_scatter(comp_rm, comp_ferm, label="all", metric="abs_l
         xcol, ycol, xlab, ylab = "abs_log_ratio_rm", "abs_log_ratio_ferm", "RM absolute log-ratio error", "FERM absolute log-ratio error"
     else:
         raise ValueError("metric must be 'abs_error' or 'abs_log'")
-    plt.figure(figsize=(7, 7))
+    fig = plt.figure(figsize=(7, 7))
     plt.scatter(df[xcol], df[ycol], alpha=0.4)
     lim = max(df[xcol].max(), df[ycol].max())
-    plt.plot([0, lim], [0, lim], linestyle="--")
+    plt.plot([0, lim], [0, lim], linestyle="--", color="k")
     share_better = (df[ycol] <= df[xcol]).mean() # share of points below the diagonal
     median_improvement = np.median(df[xcol] - df[ycol])
     text_str = (
@@ -138,11 +145,11 @@ def plot_rm_vs_ferm_error_scatter(comp_rm, comp_ferm, label="all", metric="abs_l
     )
     plt.xlabel(xlab)
     plt.ylabel(ylab)
-    plt.title(f"RM vs FERM route-level error — {(continent + ' ' if continent else '')} {label} ({niche_type})")
+    plt.title(f"RM vs FERM route-level error — {(continent + ' ' if continent else '')} {period} ({niche_type})")
     plt.tight_layout()
-    plt.show()
+    # plt.show()
 
-    return df
+    return ax
 
 def plot_error_cdf_rm_vs_ferm(comp_rm, comp_ferm, label="all", metric="abs_log", niche_type="gdp_per_capita_2018", continent = None):
     df = compare_rm_vs_ferm_routes(comp_rm, comp_ferm).copy()
@@ -253,7 +260,7 @@ def plot_ferm_vs_rm_route_change_ex(comp_rm, comp_ferm, country_geo, continent_g
     return plot_df[[
         "country_from", "country_to",
         "country_from_name", "country_to_name",
-        "total_migrants",
+        "num_migrants",
         "predicted_rm", "predicted_ferm",
         "residual_rm", "residual_ferm",
         "improvement_abs_error", "improvement_abs_log",
@@ -379,7 +386,7 @@ def plot_ferm_vs_rm_route_change_err(
     return plot_df[[
         "country_from", "country_to",
         "country_from_name", "country_to_name",
-        "total_migrants",
+        "num_migrants",
         "predicted_rm", "predicted_ferm",
         "residual_rm", "residual_ferm",
         "improvement_abs_error", "improvement_abs_log",
@@ -519,7 +526,7 @@ def plot_ferm_vs_rm_route_change(
     return plot_df[[
         "country_from", "country_to",
         "country_from_name", "country_to_name",
-        "total_migrants",
+        "num_migrants",
         "predicted_rm", "predicted_ferm",
         "residual_rm", "residual_ferm",
         "improvement_abs_error", "improvement_abs_log",
