@@ -20,6 +20,7 @@ def _():
     import matplotlib.pyplot as plt
 
     from pathlib import Path
+    from typing import Literal
 
     from src.ferm.model import FERM, RM
     from src.ferm.preprocessing import (
@@ -43,6 +44,7 @@ def _():
         Config,
         FERM,
         FIGDIR,
+        Literal,
         RM,
         add_niche,
         build_master_country_table,
@@ -91,7 +93,7 @@ def _(
         continent_gdf = world_gdf.copy()
     else:
         continent_gdf = world_gdf[world_gdf["CONTINENT"] == config.target_continent].copy()
-    return config, country_geo, flows_reported, niche_path, populations
+    return config, country_geo, flows_reported, populations
 
 
 @app.cell(hide_code=True)
@@ -103,27 +105,30 @@ def _(mo):
 
 
 @app.cell
+def _():
+    return
+
+
+@app.cell
 def _(
     add_niche,
     build_master_country_table,
     config,
     country_geo,
-    create_feature_matrix,
     filter_flows_by_continent,
     flows_reported,
     load_niche_data,
-    niche_path,
     populations,
     prepare_nodes,
     split_flows_by_period,
 ):
-    niche_df = load_niche_data(niche_path, niche_type=config.niche_type)
-
+    niche_df, niche_name = load_niche_data(niche_type=config.niche_type)
+    # TODO: questa funzione non accetta una niche relazionale
     master_country = build_master_country_table(
         country_geo,
         populations,
         niche_df=niche_df,
-        niche_col="gdp_per_capita_2018"
+        niche_col=niche_name,
     )
 
     flows, country = filter_flows_by_continent(
@@ -132,7 +137,6 @@ def _(
         niche_type="gdp_per_capita_2018", 
         continent="Asia"
         )
-
 
     # Split into periods
     pair_lookup = split_flows_by_period(
@@ -151,10 +155,80 @@ def _(
     nodes = prepare_nodes(country, flows)
 
     nodes  = nodes.drop(nodes[nodes['iso3'] == 'TWN'].index)
-    #%% Test 
+    return country, flows, master_country, nodes, pair_lookup
 
-    features = create_feature_matrix(config.niche_path)
-    return country, features, flows, nodes, pair_lookup
+
+@app.cell
+def _(master_country):
+    master_country
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Build relational features
+    """)
+    return
+
+
+@app.cell
+def _(Literal, load_niche_data, np, pd):
+    def load_relational_features(
+        relational_feature: Literal["sci","comrelig","hdi_2020"] = "sci",
+        node_feature: Literal["gdp_per_capita_2018"] = "gdp_per_capita_2018",
+        normalize: str = "log_zscore",
+        fillna: bool = True,
+    ) -> pd.DataFrame:
+
+        # Node feature 
+        df, _ = load_niche_data(niche_type=node_feature)
+        df = df.set_index("iso3")
+        df["log_gdp"] = np.log(df[node_feature])
+        df["log_gdp_norm"] = (df["log_gdp"]- df["log_gdp"].mean())/df["log_gdp"].std()
+
+        # Relational feature
+        dfr, niche_name = load_niche_data(niche_type=relational_feature) 
+
+        dfr = dfr.pivot(
+            index="iso3_o",
+            columns="iso3_d",
+            values=niche_name,
+        )
+        if fillna:
+            # print(1-(np.isnan(df.to_numpy()).sum()-235)/(235*234)) # Count nan
+            dfr.fillna(dfr.mean().mean(), inplace=True)
+
+        # Combine (add) node features with relational features
+        common_cols = df.index.intersection(dfr.index)
+        dfr = dfr.loc[common_cols, common_cols]
+        dfr = dfr.add(df.loc[common_cols, "log_gdp_norm"],axis="index")
+     
+        return dfr
+
+    rel_feat = load_relational_features(relational_feature="sci")
+    rel_feat
+    return (rel_feat,)
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
 
 
 @app.cell(hide_code=True)
@@ -166,11 +240,11 @@ def _(mo):
 
 
 @app.cell
-def _(FERM, RM, features, flows, nodes):
+def _(FERM, RM, flows, nodes, rel_feat):
     _ferm = FERM(
         nodes,
         flows,
-        features,
+        features = rel_feat,
          )
 
     res_ferm = _ferm.run(
@@ -190,7 +264,22 @@ def _(FERM, RM, features, flows, nodes):
 
 @app.cell
 def _(res_rm):
+    # res_ferm.comparison.groupby( res_ferm.comparison["year"]).mean(numeric_only=True)
     res_rm.comparison
+    return
+
+
+@app.cell
+def _(FIGDIR, plot_rm_vs_ferm_error_scatter, plt, res_ferm, res_rm):
+    _res_ferm = res_ferm.comparison.groupby( [res_ferm.comparison["country_from"], res_ferm.comparison["country_to"]]).mean(numeric_only=True)
+    _res_rm = res_ferm.comparison.groupby( [res_rm.comparison["country_from"], res_rm.comparison["country_to"]]).mean(numeric_only=True)
+    _ax = plot_rm_vs_ferm_error_scatter(
+        comp_rm = _res_rm,
+        comp_ferm = _res_ferm,
+        metric = "abs_log",
+    )
+    plt.savefig(FIGDIR / "comparison_residuals_scatter.pdf")
+    plt.show()
     return
 
 
@@ -221,23 +310,23 @@ def _(mo):
 
 @app.cell
 def _(pair_lookup):
-    pair_lookup
+    pair_lookup.keys()
     return
 
 
 @app.cell
-def _(FERM, FIGDIR, RM, country, features, pair_lookup, plt, prepare_nodes):
+def _(FERM, FIGDIR, RM, country, pair_lookup, plt, prepare_nodes, rel_feat):
     from src.ferm.plotting import plot_rm_vs_ferm_error_scatter, plot_timeseries_migrants
 
-    only_period=None#"precovid"
+    only_period="precovid"#"precovid"
     _plot = True
 
     results_rm = {}
     results_ferm = {}
 
     for period, flows_partial in pair_lookup.items():
-    
-        # flows_partial.rename({'total_migrants':'num_migrants'}, axis=1, inplace=True)
+
+        flows_partial.rename({'total_migrants':'num_migrants'}, axis=1, inplace=True)
 
         if only_period is not None and period != only_period:
             continue
@@ -257,7 +346,7 @@ def _(FERM, FIGDIR, RM, country, features, pair_lookup, plt, prepare_nodes):
         ferm = FERM(
             nodes=nodes_rm,
             flows=flows_partial,
-            features=features
+            features=rel_feat
         )
 
         results_ferm[period] = ferm.run(
@@ -277,8 +366,7 @@ def _(FERM, FIGDIR, RM, country, features, pair_lookup, plt, prepare_nodes):
             _ax.set_ylim([-0.2, 6.3])
             plt.savefig(FIGDIR / f"comparison_residuals_scatter_{period}.png")
             # plt.show()
-
-    return only_period, plot_rm_vs_ferm_error_scatter, results_ferm, results_rm
+    return (plot_rm_vs_ferm_error_scatter,)
 
 
 @app.cell
@@ -300,17 +388,11 @@ def _():
 
 
 @app.cell
-def _(
-    FIGDIR,
-    only_period,
-    plot_rm_vs_ferm_error_scatter,
-    plt,
-    results_ferm,
-    results_rm,
-):
-    ax = plot_rm_vs_ferm_error_scatter(
-        comp_rm = results_rm[only_period].comparison,
-        comp_ferm = results_ferm[only_period].comparison,
+def _(FIGDIR, plot_rm_vs_ferm_error_scatter, plt, res_ferm, res_rm):
+    _period = "precovid"
+    _ax = plot_rm_vs_ferm_error_scatter(
+        comp_rm = res_rm.comparison,
+        comp_ferm = res_ferm.comparison,
         metric = "abs_log",
     )
     plt.savefig(FIGDIR / "comparison_residuals_scatter.pdf")
@@ -330,29 +412,7 @@ def _(mo):
 
 
 @app.cell
-def _(config, load_niche_data, np, pd):
-    def create_feature_matrix(niche_path, normalize=True) -> pd.DataFrame:
-
-        niche = load_niche_data(niche_path, niche_type="gdp_per_capita_2018")
-        niche.set_index(keys='iso3', inplace=True)
-
-        origin = niche['gdp_per_capita_2018'].to_numpy()[:, None]
-        destination = niche['gdp_per_capita_2018'].to_numpy()[None, :]
-
-        if normalize:
-            # Normalization (zscore log)
-            diff = np.log1p(destination) - np.log1p(origin)
-            diff = (diff - np.nanmean(diff))/np.nanstd(diff)
-        else:
-            diff = destination - origin
-        df = pd.DataFrame(
-                data = diff,
-                index = niche.index,
-                columns = niche.index
-            )    
-        return df
-
-
+def _(config, pd):
     def load_stock_matrix(stock_path, normalize:True) -> pd.DataFrame:
 
         df = pd.read_csv(config.stock_path, index_col=0)
@@ -362,7 +422,53 @@ def _(config, load_niche_data, np, pd):
             pass
         return df
 
-    return (create_feature_matrix,)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Scaled Social Connectdness Index
+    """)
+    return
+
+
+@app.cell
+def _(pd, plt):
+    df = pd.read_csv("./Gravity_csv_V202211/Gravity_V202211_bilateral_nonbinary.csv")
+    df = df.loc[df.year == 2021,:]
+
+
+
+    xmin, xmax = df["scaled_sci_2021"].min(), df["scaled_sci_2021"].max()
+    func = lambda x : 2*(x-xmin)/(xmax-xmin) -1
+    df["scaled_sci_2021_norm"] = df["scaled_sci_2021"].apply(func)
+
+    df = df.loc[:, ["year","iso3_o", "iso3_d", "scaled_sci_2021_norm"]]
+    df = df.drop("year", axis=1)
+    # df.head()
+    df.to_csv("./data/features/sci_gravity_2021_norm.csv", index=False, float_format='%.3f')
+
+    ## Common religion
+    # xmin, xmax = df["comrelig"].min(), df["comrelig"].max()
+    # func = lambda x : 2*(x-xmin)/(xmax-xmin) -1
+    # df["comrelig_2021_norm"] = df["comrelig"].apply(func)
+
+    # df = df.loc[:, ["year","iso3_o", "iso3_d", "comrelig_2021_norm"]]
+    # df = df.drop("year", axis=1)
+    # df.head()
+    # df.to_csv("./data/features/comrelig_2021_norm.csv", index=False, float_format='%.3f')
+
+    # Plot
+    plt.hist(df["scaled_sci_2021_norm"], bins=100)
+    plt.yscale("log")
+    plt.show()
+    return
+
+
+@app.cell
+def _():
+    return
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import pycountry
+from pathlib import Path
 
 from scipy import stats
 
@@ -221,7 +222,7 @@ def load_gdp_per_capita_2018(path):
     gdp["2018"] = pd.to_numeric(gdp["2018"], errors="coerce")
     gdp = gdp.rename(columns={"Country Name": "country_name_gdp", "Country Code": "iso3", "2018": "gdp_per_capita_2018"})
     gdp["iso3"] = gdp["iso3"].astype(str).str.strip().str.upper()
-    return gdp[["country_name_gdp", "iso3", "gdp_per_capita_2018"]].drop_duplicates(subset="iso3")
+    return gdp[["iso3","gdp_per_capita_2018"]].drop_duplicates(subset="iso3")
 
 
 def load_migration_stock_2018(path):
@@ -259,7 +260,7 @@ def load_migration_stock_2018(path):
         ["country_name_migration_stock", "iso3", "migration_stock_2018"]
     ].drop_duplicates(subset="iso3")
 
-def load_hdi_2020(path):
+def load_hdi_2020(path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"Could not find HDI file at {path}.")
     df = pd.read_csv(path)
@@ -267,20 +268,51 @@ def load_hdi_2020(path):
     ensure_columns(df, cols_needed, "HDI data")
     df["iso3"] = df["iso3"].astype(str).str.strip().str.upper()
     df["hdi_2020"] = pd.to_numeric(df["hdi_2020"], errors="coerce")
-    return df[["country_name_hdi", "iso3", "hdi_2020"]].drop_duplicates(subset="iso3")
+    return df[cols_needed].drop_duplicates(subset="iso3")
 
-def load_niche_data(path, niche_type="gdp_per_capita_2018"):
+def load_sci_2021(path) -> pd.DataFrame():
+    if not path.exists():
+        raise FileNotFoundError(f"Could not find SCI file at {path}.")
+    df = pd.read_csv(path) 
+    cols_needed = ["iso3_o", "iso3_d", "scaled_sci_2021_norm"]
+    ensure_columns(df, cols_needed, "SCI data")
+    return df
+    
+def load_comrelig_2021(path) -> pd.DataFrame():
+    if not path.exists():
+        raise FileNotFoundError(f"Could not find SCI file at {path}.")
+    df = pd.read_csv(path) 
+    cols_needed = ["iso3_o", "iso3_d", "comrelig_2021"]
+    ensure_columns(df, cols_needed, "COMRELIG data")    
+    return df
+
+def load_niche_data(niche_type="gdp_per_capita_2018"):
+    DATA_PATH = Path("data")
     if niche_type == "gdp_per_capita_2018":
-        return load_gdp_per_capita_2018(path)
+        path = DATA_PATH / "features/API_NY.GDP.PCAP.CD_DS2_en_csv_v2_46.csv"
+        return load_gdp_per_capita_2018(path), "gdp_per_capita_2018"
     elif niche_type == "migration_stock_2018":
+        path = DATA_PATH / "migrations/migration_stock_2018.csv"
         return load_migration_stock_2018(path)
     elif niche_type == "hdi_2020":
+        path = DATA_PATH / "features/hdi_2020_clean.csv"
         return load_hdi_2020(path)
+    elif niche_type == "sci":
+        path = DATA_PATH / "features/sci_gravity_2021_norm.csv"
+        return load_sci_2021(path), "scaled_sci_2021_norm"
+    elif niche_type == "comrelig":
+        path = DATA_PATH / "features/comrelig_2021_norm.csv"
+        return load_comrelig_2021(path), "comrelig_2021"
     else:
         raise ValueError(f"Unsupported niche type: {niche_type}")
 
 
-def build_master_country_table(country_geo, pop, niche_df=None, niche_col="gdp_per_capita_2018"):
+def build_master_country_table(
+        country_geo: pd.DataFrame, 
+        pop: pd.DataFrame, 
+        niche_df: pd.DataFrame, 
+        niche_col:str="gdp_per_capita_2018",
+):
     master = country_geo.copy()
 
     for c in ["code", "iso3"]:

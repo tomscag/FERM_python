@@ -281,7 +281,7 @@ class FERM:
             Rows are origins and columns are destinations. If omitted, distances
             are computed from `nodes['lat']` and `nodes['lon']`.
         """
-        validate_nodes(nodes, {"code", "iso3", "population", "lat", "lon"})
+        # validate_nodes(nodes, {"code", "iso3", "population", "lat", "lon"})
         self.nodes: pd.DataFrame = nodes.copy()
         self.flows = flows
         self.features = self._prepare_attractiveness_matrix(features)

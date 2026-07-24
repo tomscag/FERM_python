@@ -36,6 +36,14 @@ class Config:
         return self.datapath / "features/hdi_2020_clean.csv"
 
     @property
+    def sci_path(self) -> Path:
+        return self.datapath / "features/sci_gravity_2021_norm.csv"
+
+    @property
+    def comrelig_path(self) -> Path:
+        return self.datapath / "features/comrelig_2021_norm.csv"
+
+    @property
     def niche_path(self) -> Path:
         if self.niche_type == "gdp_per_capita_2018":
             return self.gdp_path
