@@ -18,6 +18,7 @@ def _():
     import pandas as pd
     import numpy as np
     import matplotlib.pyplot as plt
+    from pycirclize import Circos
 
     from pathlib import Path
     from typing import Literal
@@ -41,6 +42,7 @@ def _():
 
     FIGDIR = Path("./figures")
     return (
+        Circos,
         Config,
         FERM,
         FIGDIR,
@@ -203,22 +205,12 @@ def _(Literal, load_niche_data, np, pd):
         common_cols = df.index.intersection(dfr.index)
         dfr = dfr.loc[common_cols, common_cols]
         dfr = dfr.add(df.loc[common_cols, "log_gdp_norm"],axis="index")
-     
+
         return dfr
 
     rel_feat = load_relational_features(relational_feature="sci")
     rel_feat
     return (rel_feat,)
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
-    return
 
 
 @app.cell
@@ -241,6 +233,9 @@ def _(mo):
 
 @app.cell
 def _(FERM, RM, flows, nodes, rel_feat):
+    SIGMA = 5.0
+    NUM_PARTICLES = int(30e4)
+
     _ferm = FERM(
         nodes,
         flows,
@@ -248,8 +243,8 @@ def _(FERM, RM, flows, nodes, rel_feat):
          )
 
     res_ferm = _ferm.run(
-        num_particles = int(1e4),
-        sigma = 5.0, 
+        num_particles = NUM_PARTICLES,
+        sigma = SIGMA, 
         niche_col = "niche", 
         verbose = False)
 
@@ -263,16 +258,253 @@ def _(FERM, RM, flows, nodes, rel_feat):
 
 
 @app.cell
-def _(res_rm):
-    # res_ferm.comparison.groupby( res_ferm.comparison["year"]).mean(numeric_only=True)
-    res_rm.comparison
+def _(plt, res_ferm, res_rm):
+    # Aggregate
+    res_ferm_agg = res_ferm.comparison.groupby(  [res_ferm.comparison["country_from"],res_ferm.comparison["country_to"]],
+        as_index=False,
+    ).mean(numeric_only=True)
+    res_rm_agg = res_rm.comparison.groupby( [res_rm.comparison["country_from"],res_rm.comparison["country_to"]],
+        as_index=False,
+    ).mean(numeric_only=True)
+    res_ferm_agg
+
+
+    plt.scatter(res_ferm_agg["residual"],res_rm_agg["residual"])
+    plt.xlim([0,10000])
+    plt.ylim([0,10000])
+    plt.show()
+
+    # df2=pd.DataFrame(data=[res_ferm_agg["residual"],res_rm_agg["residual"]])
+    # df2
+    return res_ferm_agg, res_rm_agg
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Chord diagram
+    """)
     return
 
 
 @app.cell
-def _(FIGDIR, plot_rm_vs_ferm_error_scatter, plt, res_ferm, res_rm):
-    _res_ferm = res_ferm.comparison.groupby( [res_ferm.comparison["country_from"], res_ferm.comparison["country_to"]]).mean(numeric_only=True)
-    _res_rm = res_ferm.comparison.groupby( [res_rm.comparison["country_from"], res_rm.comparison["country_to"]]).mean(numeric_only=True)
+def _(np, res_ferm_agg, res_rm_agg):
+    # Performance column
+    r = np.log10(np.abs(res_ferm_agg["residual"]))
+    r[r<0] = 0
+    res_ferm_agg["abs_log_residuals"] = r
+    r = np.log10(np.abs(res_rm_agg["residual"]))
+    r[r<0] = 0
+    res_rm_agg["abs_log_residuals"] = r
+    return
+
+
+@app.cell
+def _(Circos, FIGDIR, pd, plt, res_ferm_agg):
+    import matplotlib.colors as mcolors
+  
+    def plot_migration_chord(
+        df: pd.DataFrame,
+        origin_col: str = "country_from",
+        destination_col: str = "country_to",
+        value_col: str = "num_migrants",
+        performance_col:str = "residuals",
+        min_flux: float = 0,
+        top_n: int | None = None,
+        figsize: tuple[float, float] = (12, 12),
+    ):
+        """
+        Plot directed migration flows as a chord diagram.
+
+        Parameters
+        ----------
+        df
+            Long-form DataFrame containing origin, destination and flow.
+        origin_col
+            Name of the origin column.
+        destination_col
+            Name of the destination column.
+        value_col
+            Name of the migration-flow column.
+        performance_col
+            Name of the performance column.
+        min_flux
+            Exclude flows smaller than this value.
+        top_n
+            Retain only the top N countries by total incoming plus outgoing flow.
+        figsize
+            Matplotlib figure size.
+
+        Returns
+        -------
+        fig
+            Matplotlib figure.
+        matrix
+            Origin-destination matrix used in the plot.
+        """
+
+        required = {origin_col, destination_col, value_col}
+
+        if missing := required.difference(df.columns):
+            raise ValueError(f"Missing columns: {sorted(missing)}")
+
+        data = df[
+            [origin_col, destination_col, value_col]
+        ].copy()
+
+        data[value_col] = pd.to_numeric(
+            data[value_col],
+            errors="coerce",
+        )
+
+        data = data.dropna(
+            subset=[origin_col, destination_col, value_col]
+        )
+
+        data = data.loc[data[value_col] >= min_flux]
+
+        if top_n is not None:
+            outgoing = data.groupby(origin_col)[value_col].sum()
+            incoming = data.groupby(destination_col)[value_col].sum()
+
+            total_flux = outgoing.add(incoming, fill_value=0)
+
+            selected = total_flux.nlargest(top_n).index
+
+            data = data.loc[
+                data[origin_col].isin(selected)
+                & data[destination_col].isin(selected)
+            ]
+
+        matrix = data.pivot_table(
+            index=origin_col,
+            columns=destination_col,
+            values=value_col,
+            aggfunc="sum",
+            fill_value=0,
+        )
+
+        countries = matrix.index.union(matrix.columns)
+
+        matrix = matrix.reindex(
+            index=countries,
+            columns=countries,
+            fill_value=0,
+        )
+    
+        # Self-migration links are generally not informative.
+        # common = matrix.index.intersection(matrix.columns)
+        # matrix.loc[common, common] = 0
+
+
+        cmap = plt.colormaps["RdYlGn_r"]
+
+        vmin = 2    
+        df[performance_col][df[performance_col]<=vmin] = vmin
+    
+        norm = mcolors.Normalize(
+            # vmin=df[performance_col].min(),
+            vmin = vmin,
+            vmax=df[performance_col].max(),
+        )
+
+        # Performance feature
+        feature_lookup = (
+            df.set_index([origin_col, destination_col])[performance_col]
+        )    
+        link_map = [
+            (origin, destination, cmap(norm(value))) 
+            for (origin, destination), value in feature_lookup.items()
+        ]
+
+        sector_colors = {
+            name: [0.8,0.8,0.8]
+            for name in matrix.index.union(matrix.columns)
+        }
+    
+        # Draw chord diagram
+        circos = Circos.chord_diagram(
+            matrix,
+            space=2,
+            cmap=sector_colors,
+            label_kws={
+                "size": 15,
+            },
+            link_cmap=link_map,
+            link_kws={
+                "alpha": 0.45,
+                "direction": 1,
+            },        
+        )
+        circos.colorbar(        
+            vmin=vmin,
+            vmax=df[performance_col].max(),
+            cmap=cmap,
+            label=performance_col,
+        )
+
+        fig = circos.plotfig()
+        fig.set_size_inches(*figsize)
+
+        return fig, matrix
+
+    fig, matrix = plot_migration_chord(
+        df=res_ferm_agg, 
+        min_flux=5_000,
+        performance_col="abs_log_residuals",
+    )
+    plt.savefig(FIGDIR / f"chord_diagram.png")
+    plt.show()
+
+
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(np, plt, res_ferm_agg, res_rm_agg):
+    EPS: float = 1.0
+    def plot_scatter_residuals(
+        df1,
+        df2,
+        method: str = "abs_log_ratio"
+    ) -> plt.Axes:
+    
+
+        df1["residuals"] = np.log(
+            np.abs(df1["predicted_migrants"] - df1["num_migrants"]))
+        df2["residuals"] = np.log(
+            np.abs(df2["predicted_migrants"] - df2["num_migrants"]))
+
+        df1["abs_log_ratio"] = np.abs(
+            np.log10((df1["predicted_migrants"] + EPS) / (df1["num_migrants"] + EPS)))
+        df2["abs_log_ratio"] = np.abs(
+            np.log10((df2["predicted_migrants"] + EPS) / (df2["num_migrants"] + EPS)))
+
+        fig, ax = plt.subplots(figsize=(5,5))
+        ax.scatter(
+            x=df1[method], y=df2[method], alpha=0.2, color='k')
+        lim = max(df1[method].max(), df2[method].max())
+        ax.plot([0, lim], [0, lim], linestyle="--", color="tab:blue")
+        ax.set_xlabel(f"{method} rm")
+        ax.set_ylabel(f"{method} ferm")
+        ax.grid(True, linestyle=":")
+    
+        return ax
+
+    plot_scatter_residuals(res_rm_agg, res_ferm_agg, "abs_log_ratio")
+    # plt.savefig(FIGDIR / "comparison_residuals_scatter.pdf")
+    plt.show()
+    return
+
+
+@app.cell
+def _(FIGDIR, plot_rm_vs_ferm_error_scatter, plt):
+    # _res_ferm
     _ax = plot_rm_vs_ferm_error_scatter(
         comp_rm = _res_rm,
         comp_ferm = _res_ferm,
@@ -383,16 +615,19 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _(plt, res_ferm):
+    _fig, _ax = plt.subplots(figsize=(5,5))
+    _ax.scatter(res_ferm.comparison["predicted_migrants"],
+    res_ferm.comparison["num_migrants"])
     return
 
 
 @app.cell
-def _(FIGDIR, plot_rm_vs_ferm_error_scatter, plt, res_ferm, res_rm):
+def _(FIGDIR, plot_rm_vs_ferm_error_scatter, plt, res_ferm_agg, res_rm_agg):
     _period = "precovid"
     _ax = plot_rm_vs_ferm_error_scatter(
-        comp_rm = res_rm.comparison,
-        comp_ferm = res_ferm.comparison,
+        comp_rm = res_rm_agg,
+        comp_ferm = res_ferm_agg,
         metric = "abs_log",
     )
     plt.savefig(FIGDIR / "comparison_residuals_scatter.pdf")

@@ -79,7 +79,8 @@ def prepare_comp_df(comp):
 def compare_rm_vs_ferm_routes(comp_rm, comp_ferm):
     rm = prepare_comp_df(comp_rm).copy()
     ferm = prepare_comp_df(comp_ferm).copy()
-    keep_cols = ["country_from", "country_to", "country_from_name", "country_to_name", "num_migrants", "predicted_migrants", "residual", "abs_error", "log_ratio", "abs_log_ratio"]
+    # keep_cols = ["country_from", "country_to", "country_from_name", "country_to_name", "num_migrants", "predicted_migrants", "residual", "abs_error", "log_ratio", "abs_log_ratio"]
+    keep_cols = ["country_from", "country_to", "num_migrants", "predicted_migrants", "residual", "abs_error", "log_ratio", "abs_log_ratio"]
     rm = rm[keep_cols].rename(columns={"predicted_migrants": "predicted_rm", "residual": "residual_rm", "abs_error": "abs_error_rm", "log_ratio": "log_ratio_rm", "abs_log_ratio": "abs_log_ratio_rm"})
     ferm = ferm[keep_cols].rename(columns={"predicted_migrants": "predicted_ferm", "residual": "residual_ferm", "abs_error": "abs_error_ferm", "log_ratio": "log_ratio_ferm", "abs_log_ratio": "abs_log_ratio_ferm"})
     merged = rm.merge(ferm[["country_from", "country_to", "predicted_ferm", "residual_ferm", "abs_error_ferm", "log_ratio_ferm", "abs_log_ratio_ferm"]], on=["country_from", "country_to"], how="inner")
