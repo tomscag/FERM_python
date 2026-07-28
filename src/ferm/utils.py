@@ -270,7 +270,7 @@ def load_hdi_2020(path) -> pd.DataFrame:
     df["hdi_2020"] = pd.to_numeric(df["hdi_2020"], errors="coerce")
     return df[cols_needed].drop_duplicates(subset="iso3")
 
-def load_sci_2021(path) -> pd.DataFrame():
+def load_sci_2021(path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"Could not find SCI file at {path}.")
     df = pd.read_csv(path) 
@@ -278,7 +278,7 @@ def load_sci_2021(path) -> pd.DataFrame():
     ensure_columns(df, cols_needed, "SCI data")
     return df
     
-def load_comrelig_2021(path) -> pd.DataFrame():
+def load_comrelig_2021(path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"Could not find SCI file at {path}.")
     df = pd.read_csv(path) 
@@ -286,7 +286,7 @@ def load_comrelig_2021(path) -> pd.DataFrame():
     ensure_columns(df, cols_needed, "COMRELIG data")    
     return df
 
-def load_niche_data(niche_type="gdp_per_capita_2018"):
+def load_niche_data(niche_type="gdp_per_capita_2018") -> tuple[pd.DataFrame, str]:
     DATA_PATH = Path("data")
     if niche_type == "gdp_per_capita_2018":
         path = DATA_PATH / "features/API_NY.GDP.PCAP.CD_DS2_en_csv_v2_46.csv"

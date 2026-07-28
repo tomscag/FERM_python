@@ -183,13 +183,19 @@ def _(Literal, load_niche_data, np, pd):
         fillna: bool = True,
     ) -> pd.DataFrame:
 
-        # Node feature 
+        #/ Node feature matrix
         df, _ = load_niche_data(niche_type=node_feature)
-        df = df.set_index("iso3")
         df["log_gdp"] = np.log(df[node_feature])
         df["log_gdp_norm"] = (df["log_gdp"]- df["log_gdp"].mean())/df["log_gdp"].std()
+        df = df.rename(columns={"iso3":"iso3_o"})
+        df["iso3_d"] = df["iso3_o"]
 
-        # Relational feature
+        # Build node feature matrix
+        df = df.pivot(index="iso3_o", columns="iso3_d", values="log_gdp_norm")
+        df = df.ffill(axis=0).bfill(axis=0) # Fill rows
+
+    
+        #/ Relational feature matrix
         dfr, niche_name = load_niche_data(niche_type=relational_feature) 
 
         dfr = dfr.pivot(
@@ -204,22 +210,26 @@ def _(Literal, load_niche_data, np, pd):
         # Combine (add) node features with relational features
         common_cols = df.index.intersection(dfr.index)
         dfr = dfr.loc[common_cols, common_cols]
-        dfr = dfr.add(df.loc[common_cols, "log_gdp_norm"],axis="index")
+        df = df.loc[common_cols, common_cols]
 
-        return dfr
+        # df_all = dfr + df
+        df_all = df
+    
+        # dfr = dfr.add(df.loc[common_cols, "log_gdp_norm"],axis="index")
 
-    rel_feat = load_relational_features(relational_feature="sci")
+        return df_all
+
+    rel_feat = load_relational_features(
+        relational_feature="sci",
+        node_feature="gdp_per_capita_2018",
+    )
     rel_feat
     return (rel_feat,)
 
 
 @app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
+def _(rel_feat):
+    rel_feat.loc["JPN","JPN"]
     return
 
 
@@ -258,8 +268,34 @@ def _(FERM, RM, flows, nodes, rel_feat):
 
 
 @app.cell
+def _(re):
+    re
+    return
+
+
+@app.cell
+def _(pd, res_ferm_agg, res_rm_agg):
+    def coefficient_of_determination(df:pd.DataFrame) -> float:
+
+        SS_res = ((df["num_migrants"] - df["predicted_migrants"])**2).sum()    
+        SS_tot = ((df["num_migrants"] - df["num_migrants"].mean())**2).sum()
+    
+        R2 = 1 - SS_res/SS_tot
+        return R2
+
+
+    R2_ferm = coefficient_of_determination(res_ferm_agg)
+    R2_rm = coefficient_of_determination(res_rm_agg)
+
+
+    print(f"FERM: {R2_ferm}")
+    print(f"RM: {R2_rm}")
+    return
+
+
+@app.cell
 def _(plt, res_ferm, res_rm):
-    # Aggregate
+    # Aggregate results by years
     res_ferm_agg = res_ferm.comparison.groupby(  [res_ferm.comparison["country_from"],res_ferm.comparison["country_to"]],
         as_index=False,
     ).mean(numeric_only=True)
@@ -269,13 +305,17 @@ def _(plt, res_ferm, res_rm):
     res_ferm_agg
 
 
-    plt.scatter(res_ferm_agg["residual"],res_rm_agg["residual"])
-    plt.xlim([0,10000])
-    plt.ylim([0,10000])
-    plt.show()
+    # plt.scatter(res_ferm_agg["residual"],res_rm_agg["residual"])
+    # plt.xlim([0,10000])
+    # plt.ylim([0,10000])
+    # plt.show()
 
-    # df2=pd.DataFrame(data=[res_ferm_agg["residual"],res_rm_agg["residual"]])
-    # df2
+    plt.scatter(res_rm_agg["num_migrants"],res_rm_agg["predicted_migrants"],label="rm")
+    plt.scatter(res_ferm_agg["num_migrants"],res_ferm_agg["predicted_migrants"], label="ferm")
+    plt.ylabel("predicted")
+    plt.xlabel("observed")
+    plt.legend()
+
     return res_ferm_agg, res_rm_agg
 
 
@@ -300,9 +340,9 @@ def _(np, res_ferm_agg, res_rm_agg):
 
 
 @app.cell
-def _(Circos, FIGDIR, pd, plt, res_ferm_agg):
+def _(Circos, FIGDIR, pd, plt, res_rm_agg):
     import matplotlib.colors as mcolors
-  
+
     def plot_migration_chord(
         df: pd.DataFrame,
         origin_col: str = "country_from",
@@ -391,7 +431,7 @@ def _(Circos, FIGDIR, pd, plt, res_ferm_agg):
             columns=countries,
             fill_value=0,
         )
-    
+
         # Self-migration links are generally not informative.
         # common = matrix.index.intersection(matrix.columns)
         # matrix.loc[common, common] = 0
@@ -401,7 +441,7 @@ def _(Circos, FIGDIR, pd, plt, res_ferm_agg):
 
         vmin = 2    
         df[performance_col][df[performance_col]<=vmin] = vmin
-    
+
         norm = mcolors.Normalize(
             # vmin=df[performance_col].min(),
             vmin = vmin,
@@ -421,7 +461,7 @@ def _(Circos, FIGDIR, pd, plt, res_ferm_agg):
             name: [0.8,0.8,0.8]
             for name in matrix.index.union(matrix.columns)
         }
-    
+
         # Draw chord diagram
         circos = Circos.chord_diagram(
             matrix,
@@ -449,14 +489,12 @@ def _(Circos, FIGDIR, pd, plt, res_ferm_agg):
         return fig, matrix
 
     fig, matrix = plot_migration_chord(
-        df=res_ferm_agg, 
+        df=res_rm_agg, 
         min_flux=5_000,
         performance_col="abs_log_residuals",
     )
-    plt.savefig(FIGDIR / f"chord_diagram.png")
+    plt.savefig(FIGDIR / f"chord_diagram_rm.png")
     plt.show()
-
-
     return
 
 
@@ -473,7 +511,6 @@ def _(np, plt, res_ferm_agg, res_rm_agg):
         df2,
         method: str = "abs_log_ratio"
     ) -> plt.Axes:
-    
 
         df1["residuals"] = np.log(
             np.abs(df1["predicted_migrants"] - df1["num_migrants"]))
@@ -493,7 +530,7 @@ def _(np, plt, res_ferm_agg, res_rm_agg):
         ax.set_xlabel(f"{method} rm")
         ax.set_ylabel(f"{method} ferm")
         ax.grid(True, linestyle=":")
-    
+
         return ax
 
     plot_scatter_residuals(res_rm_agg, res_ferm_agg, "abs_log_ratio")
@@ -517,7 +554,7 @@ def _(FIGDIR, plot_rm_vs_ferm_error_scatter, plt):
 
 @app.cell
 def _(FIGDIR, plt, res_ferm, res_rm):
-    def plot_residuals(res_rm, res_ferm):
+    def plot_histogram_residuals(res_rm, res_ferm):
         plt.hist(res_rm.comparison["residual"], bins=2000, alpha=0.6, label="RM")
         plt.hist(res_ferm.comparison["residual"], bins=2000, alpha=0.6, label="FERM")
         # plt.xscale("log")
@@ -528,7 +565,7 @@ def _(FIGDIR, plt, res_ferm, res_rm):
         plt.legend()
         plt.savefig(FIGDIR / "comparison_residuals_histogram.pdf")
         plt.show()
-    plot_residuals(res_rm, res_ferm)
+    plot_histogram_residuals(res_rm, res_ferm)
     return
 
 
