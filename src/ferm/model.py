@@ -285,9 +285,7 @@ class FERM:
         self.nodes: pd.DataFrame = nodes.copy()
         self.flows = flows
         self.features = self._prepare_attractiveness_matrix(features)
-        self._distance_matrix: Optional[pd.DataFrame] = self._prepare_distance_matrix(
-            distance_matrix
-        )
+        self.distance_matrix = build_distance_matrix(self.nodes)        
 
     def _prepare_attractiveness_matrix(
         self,
@@ -326,52 +324,6 @@ class FERM:
             )
 
         return sigma
-
-    def _prepare_distance_matrix(
-        self,
-        distance_matrix: Optional[pd.DataFrame | np.ndarray],
-    ) -> Optional[pd.DataFrame]:
-        """
-        Validate and align a user-provided distance matrix.
-        """
-        if distance_matrix is None:
-            return None
-
-        codes = self.nodes["iso3"].tolist()
-
-        if isinstance(distance_matrix, pd.DataFrame):
-            missing_rows = set(codes) - set(distance_matrix.index)
-            missing_cols = set(codes) - set(distance_matrix.columns)
-            if missing_rows or missing_cols:
-                raise ValueError(
-                    "`distance_matrix` must contain all node ISO3 codes as both "
-                    f"rows and columns. Missing rows: {sorted(missing_rows)}; "
-                    f"missing columns: {sorted(missing_cols)}"
-                )
-            distances = distance_matrix.loc[codes, codes].astype(float).copy()
-        else:
-            values = np.asarray(distance_matrix, dtype=float)
-            expected_shape = (len(codes), len(codes))
-            if values.shape != expected_shape:
-                raise ValueError(
-                    "`distance_matrix` must be a square matrix with shape "
-                    f"{expected_shape}; got {values.shape}."
-                )
-            distances = pd.DataFrame(values, index=codes, columns=codes)
-
-        if distances.isna().any().any():
-            raise ValueError("`distance_matrix` contains missing values.")
-
-        return distances
-
-    @property
-    def distance_matrix(self) -> pd.DataFrame:
-        """
-        Pairwise distance matrix, computed lazily and cached.
-        """
-        if self._distance_matrix is None:
-            self._distance_matrix = build_distance_matrix(self.nodes)
-        return self._distance_matrix
 
     def run(
         self,
@@ -532,55 +484,9 @@ class RM:
         self.nodes: pd.DataFrame = nodes.copy()
         self.flows: pd.DataFrame = flows.copy()
         self.eps: float = float(eps)
-        self._distance_matrix: Optional[pd.DataFrame] = self._prepare_distance_matrix(
-            distance_matrix
-        )
+        self.distance_matrix = build_distance_matrix(self.nodes)
 
-    def _prepare_distance_matrix(
-        self,
-        distance_matrix: Optional[pd.DataFrame | np.ndarray],
-    ) -> Optional[pd.DataFrame]:
-        """
-        Validate and align a user-provided distance matrix.
-        """
-        if distance_matrix is None:
-            return None
 
-        codes = self.nodes["iso3"].tolist()
-
-        if isinstance(distance_matrix, pd.DataFrame):
-            missing_rows = set(codes) - set(distance_matrix.index)
-            missing_cols = set(codes) - set(distance_matrix.columns)
-            if missing_rows or missing_cols:
-                raise ValueError(
-                    "`distance_matrix` must contain all node ISO3 codes as both "
-                    f"rows and columns. Missing rows: {sorted(missing_rows)}; "
-                    f"missing columns: {sorted(missing_cols)}"
-                )
-            distances = distance_matrix.loc[codes, codes].astype(float).copy()
-        else:
-            values = np.asarray(distance_matrix, dtype=float)
-            expected_shape = (len(codes), len(codes))
-            if values.shape != expected_shape:
-                raise ValueError(
-                    "`distance_matrix` must be a square matrix with shape "
-                    f"{expected_shape}; got {values.shape}."
-                )
-            distances = pd.DataFrame(values, index=codes, columns=codes)
-
-        if distances.isna().any().any():
-            raise ValueError("`distance_matrix` contains missing values.")
-
-        return distances
-
-    @property
-    def distance_matrix(self) -> pd.DataFrame:
-        """
-        Pairwise distance matrix, computed lazily and cached.
-        """
-        if self._distance_matrix is None:
-            self._distance_matrix = build_distance_matrix(self.nodes)
-        return self._distance_matrix
 
     @staticmethod
     def build_intervening_population_matrix(
