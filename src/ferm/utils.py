@@ -114,7 +114,8 @@ def code_to_country(code):
     return {"XK": "Kosovo", "TW": "Taiwan"}.get(code, code)
 
 def iso3_to_country(iso3):
-    return {"XKX": "Kosovo", "TWN": "Taiwan"}.get(iso3, iso3)
+    return pycountry.countries.get(alpha_3=iso3).name
+    # return {"XKX": "Kosovo", "TWN": "Taiwan"}.get(iso3, iso3)
 
 def load_country_geometries_global():    
 

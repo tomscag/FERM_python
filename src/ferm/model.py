@@ -75,12 +75,12 @@ def validate_nodes(
     if missing:
         raise ValueError(f"`nodes` is missing required columns: {sorted(missing)}")
 
-    if nodes["code"].isna().any():
+    if nodes["iso3"].isna().any():
         raise ValueError("`nodes['code']` must not contain missing values.")
 
-    if not nodes["code"].is_unique:
+    if not nodes["iso3"].is_unique:
         duplicated = nodes.loc[nodes["code"].duplicated(), "code"].tolist()
-        raise ValueError(f"`code` values must be unique. Duplicates: {duplicated}")
+        raise ValueError(f"`ISO3` values must be unique. Duplicates: {duplicated}")
 
 
 # ---------------------------------------------------------------------------
@@ -258,7 +258,6 @@ class FERM:
         nodes: pd.DataFrame,
         flows: pd.DataFrame,
         features: pd.DataFrame | np.ndarray,
-        distance_matrix: Optional[pd.DataFrame | np.ndarray] = None,
     ) -> None:
         """
         Parameters
@@ -271,65 +270,51 @@ class FERM:
             - `lon` : longitude in degrees
         flows : pd.DataFrame
             Observed flows
-        features : pd.DataFrame or np.ndarray
+        features : pd.DataFrame 
             Square attractiveness matrix Sigma. Rows are origins and columns
             are destinations. The index/columns must match `nodes['iso3']` if
-            a DataFrame is provided. If a NumPy array is provided, it is assumed
-            to be ordered like `nodes['iso3']`.
-        distance_matrix : pd.DataFrame or np.ndarray, optional
-            Square distance matrix used to order destinations from each origin.
-            Rows are origins and columns are destinations. If omitted, distances
-            are computed from `nodes['lat']` and `nodes['lon']`.
+            a DataFrame is provided. 
         """
         # validate_nodes(nodes, {"code", "iso3", "population", "lat", "lon"})
         self.nodes: pd.DataFrame = nodes.copy()
-        self.flows = flows
+        self.flows = flows        
         self.features = self._prepare_attractiveness_matrix(features)
-        self.distance_matrix = build_distance_matrix(self.nodes)        
+        self.distance_matrix = build_distance_matrix(self.nodes)   
+        
+    def _check_inputs(nodes, features, flows):
+        #TODO
+        codes = nodes["iso3"]
+        
+    
+        
 
     def _prepare_attractiveness_matrix(
         self,
-        features: pd.DataFrame | np.ndarray,
+        features: pd.DataFrame,
     ) -> pd.DataFrame:
         """
         Validate and align the Sigma attractiveness matrix.
         """
-        codes = self.nodes["iso3"].tolist()
-
-        if isinstance(features, pd.DataFrame):
-            missing_rows = set(codes) - set(features.index)
-            missing_cols = set(codes) - set(features.columns)
-            if missing_rows or missing_cols:
-                raise ValueError(
-                    "`features` must contain all node ISO3 codes as both rows "
-                    f"and columns. Missing rows: {sorted(missing_rows)}; "
-                    f"missing columns: {sorted(missing_cols)}"
-                )
-            sigma = features.loc[codes, codes].astype(float).copy()
-        else:
-            values = np.asarray(features, dtype=float)
-            expected_shape = (len(codes), len(codes))
-            if values.shape != expected_shape:
-                raise ValueError(
-                    "`features` must be a square matrix with shape "
-                    f"{expected_shape}; got {values.shape}."
-                )
-            sigma = pd.DataFrame(values, index=codes, columns=codes)
-
-        if sigma.isna().any().any():
+        codes = self.nodes["iso3"].tolist()        
+        missing_rows = set(codes) - set(features.index)
+        missing_cols = set(codes) - set(features.columns)
+        if missing_rows or missing_cols:
             raise ValueError(
-                "`features` contains missing values. Missing values imply a "
-                "substantive modeling choice, so fill or impute them before "
-                "running FERM."
+                "`features` must contain all node ISO3 codes as both rows "
+                f"and columns. Missing rows: {sorted(missing_rows)}; "
+                f"missing columns: {sorted(missing_cols)}"
             )
+        Sigma = features.loc[codes, codes].astype(float).copy()
 
-        return sigma
+        if Sigma.isna().any().any():
+            raise ValueError("`features` contains missing values.")
+        
+        return Sigma
 
     def run(
         self,
         num_particles: int = 300,
         sigma: float = 0.15,
-        niche_col: Optional[str] = None,
         verbose: bool = False,
         rng: Optional[np.random.Generator] = None,
     ) -> pd.DataFrame:
@@ -343,9 +328,6 @@ class FERM:
         sigma : float, default=0.15
             Shared standard deviation of the Gaussian sampling kernel used for
             both thresholds and offers.
-        niche_col : str, optional
-            Deprecated compatibility argument. The FERM centering parameters
-            are taken from the `features`/Sigma matrix.
         verbose : bool, default=False
             If True, print the current origin code while processing.
         rng : np.random.Generator, optional
@@ -480,7 +462,7 @@ class RM:
             Rows are origins and columns are destinations. If omitted, distances
             are computed from `nodes['lat']` and `nodes['lon']`.
         """
-        validate_nodes(nodes, {"code", "population", "lat", "lon"})
+        validate_nodes(nodes, {"iso3", "population", "lat", "lon"})
         self.nodes: pd.DataFrame = nodes.copy()
         self.flows: pd.DataFrame = flows.copy()
         self.eps: float = float(eps)
@@ -511,7 +493,7 @@ class RM:
         pd.DataFrame
             Intervening-population matrix.
         """
-        validate_nodes(nodes, {"code", "population"})
+        validate_nodes(nodes, {"iso3", "population"})
 
         codes = nodes["iso3"].tolist()
         populations = nodes.set_index("iso3")["population"].astype(float)
@@ -544,7 +526,7 @@ class RM:
         Parameters
         ----------
         nodes : pd.DataFrame
-            Node table with columns `code` and `population`.
+            Node table with columns `iso3` codes and `population`.
         intervening_population_matrix : pd.DataFrame
             Matrix S of intervening populations.
 
@@ -558,7 +540,7 @@ class RM:
         populations = nodes.set_index("iso3")["population"].astype(float)
         codes = nodes["iso3"].tolist()
 
-        P = pd.DataFrame(0.0, index=codes, columns=codes)
+        probabilities = pd.DataFrame(0.0, index=codes, columns=codes)
 
         for origin in codes:
             m_i = populations[origin]
@@ -575,9 +557,9 @@ class RM:
             if row_sum > 0:
                 p_i = p_i / row_sum
 
-            P.loc[origin] = p_i
+            probabilities.loc[origin] = p_i
 
-        return P
+        return probabilities
 
     def run(
         self,
@@ -709,6 +691,9 @@ def predicted_flows_from_probabilities(
         Comparison table containing observed and predicted flows and
         error diagnostics.
     """
+    
+    flows = flows.groupby([origin_col, dest_col], as_index=False)[flow_col].sum()
+    
     outflow = flows.groupby(origin_col)[flow_col].sum()
     outflow.index = outflow.index.map(normalize_country_code_to_iso3)
     

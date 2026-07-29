@@ -157,13 +157,25 @@ def _(
     nodes = prepare_nodes(country, flows)
 
     nodes  = nodes.drop(nodes[nodes['iso3'] == 'TWN'].index)
-    return country, flows, master_country, nodes, pair_lookup
+    return country, flows, nodes, pair_lookup
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Select period
+    """)
+    return
 
 
 @app.cell
-def _(master_country):
-    master_country
-    return
+def _(flows):
+    flows_sel = flows.loc[(flows.year==2019)  & (flows.month <=12)]
+
+    flows_sel = flows_sel.groupby(["country_from", "country_to"], as_index=False)["num_migrants"].sum()
+
+    flows_sel
+    return (flows_sel,)
 
 
 @app.cell(hide_code=True)
@@ -193,7 +205,7 @@ def _(Literal, load_niche_data, np, pd):
         # Build node feature matrix
         df = df.pivot(index="iso3_o", columns="iso3_d", values="log_gdp_norm")
         df = df.ffill(axis=0).bfill(axis=0) # Fill rows
-
+        # print(df)
     
         #/ Relational feature matrix
         dfr, niche_name = load_niche_data(niche_type=relational_feature) 
@@ -206,14 +218,18 @@ def _(Literal, load_niche_data, np, pd):
         if fillna:
             # print(1-(np.isnan(df.to_numpy()).sum()-235)/(235*234)) # Count nan
             dfr.fillna(dfr.mean().mean(), inplace=True)
+    
+        # Fill to zero the diagonal terms
+        for label in dfr.index:
+            dfr.loc[label, label] = 0
 
         # Combine (add) node features with relational features
         common_cols = df.index.intersection(dfr.index)
         dfr = dfr.loc[common_cols, common_cols]
         df = df.loc[common_cols, common_cols]
 
-        # df_all = dfr + df
-        df_all = df
+        df_all = dfr + df
+        # df_all = df
     
         # dfr = dfr.add(df.loc[common_cols, "log_gdp_norm"],axis="index")
 
@@ -242,25 +258,24 @@ def _(mo):
 
 
 @app.cell
-def _(FERM, RM, flows, nodes, rel_feat):
+def _(FERM, RM, flows_sel, nodes, rel_feat):
     SIGMA = 5.0
     NUM_PARTICLES = int(30e4)
 
     _ferm = FERM(
         nodes,
-        flows,
+        flows_sel,
         features = rel_feat,
          )
 
     res_ferm = _ferm.run(
         num_particles = NUM_PARTICLES,
         sigma = SIGMA, 
-        niche_col = "niche", 
         verbose = False)
 
     _rm = RM(
             nodes,
-            flows,
+            flows_sel,
             )
 
     res_rm = _rm.run()
@@ -268,8 +283,8 @@ def _(FERM, RM, flows, nodes, rel_feat):
 
 
 @app.cell
-def _(re):
-    re
+def _(res_rm):
+    res_rm.comparison
     return
 
 
@@ -279,7 +294,7 @@ def _(pd, res_ferm_agg, res_rm_agg):
 
         SS_res = ((df["num_migrants"] - df["predicted_migrants"])**2).sum()    
         SS_tot = ((df["num_migrants"] - df["num_migrants"].mean())**2).sum()
-    
+
         R2 = 1 - SS_res/SS_tot
         return R2
 
@@ -315,7 +330,6 @@ def _(plt, res_ferm, res_rm):
     plt.ylabel("predicted")
     plt.xlabel("observed")
     plt.legend()
-
     return res_ferm_agg, res_rm_agg
 
 
@@ -340,7 +354,7 @@ def _(np, res_ferm_agg, res_rm_agg):
 
 
 @app.cell
-def _(Circos, FIGDIR, pd, plt, res_rm_agg):
+def _(Circos, FIGDIR, pd, plt, res_ferm_agg):
     import matplotlib.colors as mcolors
 
     def plot_migration_chord(
@@ -439,7 +453,7 @@ def _(Circos, FIGDIR, pd, plt, res_rm_agg):
 
         cmap = plt.colormaps["RdYlGn_r"]
 
-        vmin = 2    
+        vmin = 3    
         df[performance_col][df[performance_col]<=vmin] = vmin
 
         norm = mcolors.Normalize(
@@ -489,11 +503,11 @@ def _(Circos, FIGDIR, pd, plt, res_rm_agg):
         return fig, matrix
 
     fig, matrix = plot_migration_chord(
-        df=res_rm_agg, 
-        min_flux=5_000,
+        df=res_ferm_agg, 
+        min_flux=10_000,
         performance_col="abs_log_residuals",
     )
-    plt.savefig(FIGDIR / f"chord_diagram_rm.png")
+    plt.savefig(FIGDIR / f"chord_diagram_ferm.png")
     plt.show()
     return
 
@@ -706,35 +720,49 @@ def _(mo):
 
 
 @app.cell
-def _(pd, plt):
+def _(pd):
     df = pd.read_csv("./Gravity_csv_V202211/Gravity_V202211_bilateral_nonbinary.csv")
     df = df.loc[df.year == 2021,:]
+    df
+
+    # Sci Min-max threshold
+    # thres = 1e6
+    # df.loc[df["scaled_sci_2021"] >= 1e6, "scaled_sci_2021"] = 0
+    # xmin, xmax = df["scaled_sci_2021"].min(), df["scaled_sci_2021"].max()
+    # func = lambda x : 2*(x-xmin)/(xmax-xmin) -1
+    # df["scaled_sci_2021_minmax"] = df["scaled_sci_2021"].apply(func)
+    # df = df.loc[:, ["iso3_o", "iso3_d", "scaled_sci_2021_minmax"]]
+    # df.to_csv(f"./data/features/scaled_sci_2021_minmax_threshold_{thres:.1e}.csv", index=False, float_format='%.3f')
+
+    ## Sci lognorm
+    # df["scaled_sci_2021_lognorm"] = (np.log10(df["scaled_sci_2021"]) - np.log10(df["scaled_sci_2021"]).mean())/np.log10(df["scaled_sci_2021"]).std()
+    # df = df.loc[:, ["iso3_o", "iso3_d", "scaled_sci_2021_lognorm"]]
+    # df.to_csv("./data/features/sci_gravity_2021_lognorm.csv", index=False, float_format='%.3f')
 
 
 
-    xmin, xmax = df["scaled_sci_2021"].min(), df["scaled_sci_2021"].max()
-    func = lambda x : 2*(x-xmin)/(xmax-xmin) -1
-    df["scaled_sci_2021_norm"] = df["scaled_sci_2021"].apply(func)
+    ## Sci Min-max
+    # xmin, xmax = df["scaled_sci_2021"].min(), df["scaled_sci_2021"].max()
+    # func = lambda x : 2*(x-xmin)/(xmax-xmin) -1
+    # df["scaled_sci_2021_norm"] = df["scaled_sci_2021"].apply(func)
 
-    df = df.loc[:, ["year","iso3_o", "iso3_d", "scaled_sci_2021_norm"]]
-    df = df.drop("year", axis=1)
-    # df.head()
-    df.to_csv("./data/features/sci_gravity_2021_norm.csv", index=False, float_format='%.3f')
+    # df = df.loc[:, ["iso3_o", "iso3_d", "scaled_sci_2021_norm"]]
+    # # df.head()
+    # df.to_csv("./data/features/sci_gravity_2021_norm.csv", index=False, float_format='%.3f')
 
     ## Common religion
     # xmin, xmax = df["comrelig"].min(), df["comrelig"].max()
     # func = lambda x : 2*(x-xmin)/(xmax-xmin) -1
     # df["comrelig_2021_norm"] = df["comrelig"].apply(func)
 
-    # df = df.loc[:, ["year","iso3_o", "iso3_d", "comrelig_2021_norm"]]
-    # df = df.drop("year", axis=1)
+    # df = df.loc[:, ["iso3_o", "iso3_d", "comrelig_2021_norm"]]
     # df.head()
     # df.to_csv("./data/features/comrelig_2021_norm.csv", index=False, float_format='%.3f')
 
     # Plot
-    plt.hist(df["scaled_sci_2021_norm"], bins=100)
-    plt.yscale("log")
-    plt.show()
+    # plt.hist(df["scaled_sci_2021_minmax"], bins=100)
+    # plt.yscale("log")
+    # plt.show()
     return
 
 
