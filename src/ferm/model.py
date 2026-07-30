@@ -728,6 +728,8 @@ def predicted_flows_from_probabilities(
 
     comparison[flow_col] = comparison[flow_col].fillna(0.0)
     comparison[pred_col] = comparison[pred_col].fillna(0.0)
+    
+    comparison[pred_col] = comparison[pred_col].round()
 
     comparison = add_error_columns(
         comparison=comparison,

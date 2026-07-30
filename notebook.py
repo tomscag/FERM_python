@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.23.11"
-app = marimo.App()
+app = marimo.App(width="medium")
 
 
 @app.cell(hide_code=True)
@@ -18,6 +18,7 @@ def _():
     import pandas as pd
     import numpy as np
     import matplotlib.pyplot as plt
+    from matplotlib.axes import Axes
     from pycirclize import Circos
 
     from pathlib import Path
@@ -39,9 +40,9 @@ def _():
         iso2_to_iso3,
         )
     from src.ferm.config import Config
-
     FIGDIR = Path("./figures")
     return (
+        Axes,
         Circos,
         Config,
         FERM,
@@ -171,9 +172,7 @@ def _(mo):
 @app.cell
 def _(flows):
     flows_sel = flows.loc[(flows.year==2019)  & (flows.month <=12)]
-
     flows_sel = flows_sel.groupby(["country_from", "country_to"], as_index=False)["num_migrants"].sum()
-
     flows_sel
     return (flows_sel,)
 
@@ -206,7 +205,7 @@ def _(Literal, load_niche_data, np, pd):
         df = df.pivot(index="iso3_o", columns="iso3_d", values="log_gdp_norm")
         df = df.ffill(axis=0).bfill(axis=0) # Fill rows
         # print(df)
-    
+
         #/ Relational feature matrix
         dfr, niche_name = load_niche_data(niche_type=relational_feature) 
 
@@ -218,7 +217,7 @@ def _(Literal, load_niche_data, np, pd):
         if fillna:
             # print(1-(np.isnan(df.to_numpy()).sum()-235)/(235*234)) # Count nan
             dfr.fillna(dfr.mean().mean(), inplace=True)
-    
+
         # Fill to zero the diagonal terms
         for label in dfr.index:
             dfr.loc[label, label] = 0
@@ -229,23 +228,22 @@ def _(Literal, load_niche_data, np, pd):
         df = df.loc[common_cols, common_cols]
 
         df_all = dfr + df
-        # df_all = df
-    
+
         # dfr = dfr.add(df.loc[common_cols, "log_gdp_norm"],axis="index")
 
-        return df_all
+        return df_all, df
 
-    rel_feat = load_relational_features(
+    df_feat_all, df_feat_nodes = load_relational_features(
         relational_feature="sci",
         node_feature="gdp_per_capita_2018",
     )
-    rel_feat
-    return (rel_feat,)
+    df_feat_all
+    return df_feat_all, df_feat_nodes
 
 
 @app.cell
-def _(rel_feat):
-    rel_feat.loc["JPN","JPN"]
+def _(df_feat_all):
+    df_feat_all.loc["JPN","JPN"]
     return
 
 
@@ -258,79 +256,248 @@ def _(mo):
 
 
 @app.cell
-def _(FERM, RM, flows_sel, nodes, rel_feat):
+def _(FERM, RM, df_feat_all, df_feat_nodes, flows_sel, nodes):
     SIGMA = 5.0
-    NUM_PARTICLES = int(30e4)
+    NUM_PARTICLES = int(10e4)
 
+    # GDP + SCI
     _ferm = FERM(
         nodes,
         flows_sel,
-        features = rel_feat,
+        features = df_feat_all,
          )
 
     res_ferm = _ferm.run(
         num_particles = NUM_PARTICLES,
         sigma = SIGMA, 
-        verbose = False)
+        verbose = False).comparison
 
+    # GDP
+    _ferm = FERM(
+        nodes,
+        flows_sel,
+        features = df_feat_nodes,
+         )
+
+    res_ferm_GDP = _ferm.run(
+        num_particles = NUM_PARTICLES,
+        sigma = SIGMA, 
+        verbose = False).comparison
+
+    # RM
     _rm = RM(
             nodes,
             flows_sel,
             )
 
-    res_rm = _rm.run()
-    return res_ferm, res_rm
+    res_rm = _rm.run().comparison
+    return res_ferm, res_ferm_GDP, res_rm
 
 
 @app.cell
-def _(res_rm):
-    res_rm.comparison
+def _():
     return
 
 
 @app.cell
-def _(pd, res_ferm_agg, res_rm_agg):
-    def coefficient_of_determination(df:pd.DataFrame) -> float:
+def _(np, pd, res_ferm, res_ferm_GDP, res_rm):
+    def coefficient_of_determination(df:pd.DataFrame, mode:str="log") -> float:
 
-        SS_res = ((df["num_migrants"] - df["predicted_migrants"])**2).sum()    
-        SS_tot = ((df["num_migrants"] - df["num_migrants"].mean())**2).sum()
+        if mode == "log":
+            df = df.loc[ (df["num_migrants"] >0) & (df["predicted_migrants"] >0),:]
+            SS_res = ((np.log10(df["num_migrants"]) - np.log10(df["predicted_migrants"]))**2).sum()    
+            SS_tot = ((np.log10(df["num_migrants"]) - np.log10(df["num_migrants"]).mean())**2).sum()
+        elif mode=="normal":
+            SS_res = ((df["num_migrants"] - df["predicted_migrants"])**2).sum()    
+            SS_tot = ((df["num_migrants"] - df["num_migrants"].mean())**2).sum()
 
         R2 = 1 - SS_res/SS_tot
         return R2
 
+    mode = "normal"
+    R2_ferm = coefficient_of_determination(res_ferm, mode=mode)
+    R2_ferm_GDP = coefficient_of_determination(res_ferm_GDP, mode=mode)
+    R2_rm = coefficient_of_determination(res_rm, mode=mode)
 
-    R2_ferm = coefficient_of_determination(res_ferm_agg)
-    R2_rm = coefficient_of_determination(res_rm_agg)
+
+    print(f"FERM ALL:\t{R2_ferm:.3f}")
+    print(f"FERM GDP:\t{R2_ferm_GDP:.3f}")
+    print(f"RM:\t\t\t{R2_rm:.3f}")
+    return
 
 
-    print(f"FERM: {R2_ferm}")
-    print(f"RM: {R2_rm}")
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Scatter plot data versus models
+    """)
     return
 
 
 @app.cell
-def _(plt, res_ferm, res_rm):
-    # Aggregate results by years
-    res_ferm_agg = res_ferm.comparison.groupby(  [res_ferm.comparison["country_from"],res_ferm.comparison["country_to"]],
-        as_index=False,
-    ).mean(numeric_only=True)
-    res_rm_agg = res_rm.comparison.groupby( [res_rm.comparison["country_from"],res_rm.comparison["country_to"]],
-        as_index=False,
-    ).mean(numeric_only=True)
-    res_ferm_agg
+def _(Axes, FIGDIR, np, pd, plt, res_ferm, res_rm):
+    def plot_scatter(df:pd.DataFrame, label:str="FERM", ax:Axes=None):
+        """
+        Plot data versus model predictions
+        """
+        # Filter dataset
+        df = df.loc[
+        (df["num_migrants"]>0) & (df["predicted_migrants"]>0),:]
+    
+        n_bins = 12
+        if ax is None:
+            ax: Axes
+            _, ax = plt.subplots(figsize=(6,6))
+
+        x = df["num_migrants"].to_numpy()
+        y = df["predicted_migrants"].to_numpy()
+    
+        ax.scatter(
+            x=x, 
+            y=y,
+            color='k',        
+            alpha=0.25,
+            zorder=1,
+        )
+
+        # Logarithmically spaced x bins.
+        bin_edges = np.geomspace(
+            x.min(),
+            x.max(),
+            n_bins + 1,
+        )
+
+        # Assign each observation to a bin.
+        bin_indices = np.digitize(x, bin_edges) - 1
+
+        box_data = []
+        box_positions = []
+        box_widths = []
+
+        for i in range(n_bins):
+            values = y[bin_indices == i]
+
+            if values.size == 0:
+                continue
+
+            left = bin_edges[i]
+            right = bin_edges[i + 1]
+
+            # Geometric midpoint, appropriate for a log-scaled axis.
+            position = np.sqrt(left * right)
+
+            box_data.append(values)
+            box_positions.append(position)
+
+            # Width expressed in the original x coordinates.
+            box_widths.append(0.55 * (right - left))
+
+        ax.boxplot(
+            box_data,
+            positions=box_positions,
+            widths=box_widths,
+            vert=True,
+            patch_artist=True,
+            showfliers=False,
+            manage_ticks=False,
+            boxprops={
+                "facecolor": "tab:orange",
+                "alpha": 0.9,
+                "edgecolor": "tab:blue",
+            },
+            medianprops={
+                "color": "tab:blue",
+                "linewidth": 2,
+            },
+            whiskerprops={
+                "color": "tab:blue",
+            },
+            capprops={
+                "color": "tab:blue",
+            },
+            zorder=2,
+        )
+
+    
+    
+        ax.plot([1e-1,1e6],[1e-1,1e6],color="tab:red",linestyle="--",alpha=0.95)
+        ax.set_ylabel("Migrants (model)", fontsize=18)
+        ax.set_xlabel("Migrants (data)", fontsize=18)
+        ax.set(xscale="log", yscale="log")
+        ax.set_xlim([1e-1,1e6])
+        ax.set_ylim([1e-1,1e6])
+        ax.set_title(label, color="tab:red", fontsize=16)
+
+        return ax
 
 
-    # plt.scatter(res_ferm_agg["residual"],res_rm_agg["residual"])
-    # plt.xlim([0,10000])
-    # plt.ylim([0,10000])
-    # plt.show()
+    # plot_scatter(res_rm_agg)
+    df_list, labels = [res_rm, res_ferm], ["RM", "FERM"]
+    fig, _axes = plt.subplots(1,2,figsize=(12,6))
 
-    plt.scatter(res_rm_agg["num_migrants"],res_rm_agg["predicted_migrants"],label="rm")
-    plt.scatter(res_ferm_agg["num_migrants"],res_ferm_agg["predicted_migrants"], label="ferm")
-    plt.ylabel("predicted")
-    plt.xlabel("observed")
-    plt.legend()
-    return res_ferm_agg, res_rm_agg
+    for _idx, _ax in enumerate(_axes):
+        plot_scatter(df=df_list[_idx], ax=_ax, label=labels[_idx])
+
+    plt.savefig(FIGDIR / "scatter_plot.pdf", bbox_inches="tight")
+    plt.show()
+
+
+    return
+
+
+@app.cell
+def _(data):
+    # pd.DataFrame(data={"a":res_ferm["predicted_migrants"], "b":res_ferm["predicted_migrants"].round()})
+
+
+    data
+
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Scatter plot residuals
+    """)
+    return
+
+
+@app.cell
+def _(Axes, FIGDIR, np, plt, res_ferm, res_rm):
+    EPS: float = 1.0
+    def plot_scatter_residuals(
+        df1,
+        df2,
+        method: str = "abs_log_ratio"
+    ) -> Axes:
+
+        df1["residuals"] = np.log(
+            np.abs(df1["predicted_migrants"] - df1["num_migrants"]))
+        df2["residuals"] = np.log(
+            np.abs(df2["predicted_migrants"] - df2["num_migrants"]))
+
+        df1["abs_log_ratio"] = np.abs(
+            np.log10((df1["predicted_migrants"] + EPS) / (df1["num_migrants"] + EPS)))
+        df2["abs_log_ratio"] = np.abs(
+            np.log10((df2["predicted_migrants"] + EPS) / (df2["num_migrants"] + EPS)))
+    
+        ax: Axes
+        fig, ax = plt.subplots(figsize=(5,5))
+        ax.scatter(
+            x=df1[method], y=df2[method], alpha=0.2, color='k')
+        lim = max(df1[method].max(), df2[method].max())
+        ax.plot([0, lim], [0, lim], linestyle="--", color="tab:blue")
+        ax.set_xlabel(f"errors RM", fontsize=16)
+        ax.set_ylabel(f"errors FERM", fontsize=16)
+        ax.grid(True, linestyle=":")
+
+        return ax
+
+    plot_scatter_residuals(res_rm, res_ferm, "abs_log_ratio")
+    plt.savefig(FIGDIR / "comparison_residuals_scatter_ferm.pdf")
+    plt.show()
+    return
 
 
 @app.cell(hide_code=True)
@@ -354,7 +521,7 @@ def _(np, res_ferm_agg, res_rm_agg):
 
 
 @app.cell
-def _(Circos, FIGDIR, pd, plt, res_ferm_agg):
+def _(Circos, FIGDIR, pd, plt, res_rm):
     import matplotlib.colors as mcolors
 
     def plot_migration_chord(
@@ -453,13 +620,15 @@ def _(Circos, FIGDIR, pd, plt, res_ferm_agg):
 
         cmap = plt.colormaps["RdYlGn_r"]
 
-        vmin = 3    
+        vmin = 4 
+        vmax = 5.8
         df[performance_col][df[performance_col]<=vmin] = vmin
 
         norm = mcolors.Normalize(
             # vmin=df[performance_col].min(),
+            # vmax=df[performance_col].max(),
             vmin = vmin,
-            vmax=df[performance_col].max(),
+            vmax = vmax,
         )
 
         # Performance feature
@@ -492,7 +661,8 @@ def _(Circos, FIGDIR, pd, plt, res_ferm_agg):
         )
         circos.colorbar(        
             vmin=vmin,
-            vmax=df[performance_col].max(),
+            # vmax=df[performance_col].max(),
+            vmax=vmax,
             cmap=cmap,
             label=performance_col,
         )
@@ -503,52 +673,11 @@ def _(Circos, FIGDIR, pd, plt, res_ferm_agg):
         return fig, matrix
 
     fig, matrix = plot_migration_chord(
-        df=res_ferm_agg, 
-        min_flux=10_000,
+        df=res_rm, 
+        min_flux=30_000,
         performance_col="abs_log_residuals",
     )
-    plt.savefig(FIGDIR / f"chord_diagram_ferm.png")
-    plt.show()
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _(np, plt, res_ferm_agg, res_rm_agg):
-    EPS: float = 1.0
-    def plot_scatter_residuals(
-        df1,
-        df2,
-        method: str = "abs_log_ratio"
-    ) -> plt.Axes:
-
-        df1["residuals"] = np.log(
-            np.abs(df1["predicted_migrants"] - df1["num_migrants"]))
-        df2["residuals"] = np.log(
-            np.abs(df2["predicted_migrants"] - df2["num_migrants"]))
-
-        df1["abs_log_ratio"] = np.abs(
-            np.log10((df1["predicted_migrants"] + EPS) / (df1["num_migrants"] + EPS)))
-        df2["abs_log_ratio"] = np.abs(
-            np.log10((df2["predicted_migrants"] + EPS) / (df2["num_migrants"] + EPS)))
-
-        fig, ax = plt.subplots(figsize=(5,5))
-        ax.scatter(
-            x=df1[method], y=df2[method], alpha=0.2, color='k')
-        lim = max(df1[method].max(), df2[method].max())
-        ax.plot([0, lim], [0, lim], linestyle="--", color="tab:blue")
-        ax.set_xlabel(f"{method} rm")
-        ax.set_ylabel(f"{method} ferm")
-        ax.grid(True, linestyle=":")
-
-        return ax
-
-    plot_scatter_residuals(res_rm_agg, res_ferm_agg, "abs_log_ratio")
-    # plt.savefig(FIGDIR / "comparison_residuals_scatter.pdf")
+    plt.savefig(FIGDIR / f"chord_diagram_rm.png")
     plt.show()
     return
 
