@@ -108,7 +108,8 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _(niche_df):
+    niche_df
     return
 
 
@@ -158,7 +159,13 @@ def _(
     nodes = prepare_nodes(country, flows)
 
     nodes  = nodes.drop(nodes[nodes['iso3'] == 'TWN'].index)
-    return country, flows, nodes, pair_lookup
+    nodes
+    return country, flows, niche_df, nodes, pair_lookup
+
+
+@app.cell
+def _():
+    return
 
 
 @app.cell(hide_code=True)
@@ -174,7 +181,7 @@ def _(flows):
     flows_sel = flows.loc[(flows.year==2019)  & (flows.month <=12)]
     flows_sel = flows_sel.groupby(["country_from", "country_to"], as_index=False)["num_migrants"].sum()
     flows_sel
-    return (flows_sel,)
+    return
 
 
 @app.cell(hide_code=True)
@@ -231,19 +238,24 @@ def _(Literal, load_niche_data, np, pd):
 
         # dfr = dfr.add(df.loc[common_cols, "log_gdp_norm"],axis="index")
 
-        return df_all, df
+        return df_all, df, dfr
 
-    df_feat_all, df_feat_nodes = load_relational_features(
+    df_feat_all, df_feat_nodes, dfr_feat = load_relational_features(
         relational_feature="sci",
         node_feature="gdp_per_capita_2018",
     )
     df_feat_all
-    return df_feat_all, df_feat_nodes
+    return (df_feat_all,)
 
 
 @app.cell
-def _(df_feat_all):
+def _(df_feat_all, nodes):
+    # plt.imshow(df_feat_all.to_numpy())
+    # plt.colorbar()
+    # plt.show()
     df_feat_all.loc["JPN","JPN"]
+    nodes.loc[nodes.iso3=="XKX"]
+    nodes.drop(labels=236, inplace=True)
     return
 
 
@@ -256,42 +268,42 @@ def _(mo):
 
 
 @app.cell
-def _(FERM, RM, df_feat_all, df_feat_nodes, flows_sel, nodes):
-    SIGMA = 5.0
-    NUM_PARTICLES = int(10e4)
+def _():
+    # SIGMA = 5.0
+    # NUM_PARTICLES = int(10e4)
 
-    # GDP + SCI
-    _ferm = FERM(
-        nodes,
-        flows_sel,
-        features = df_feat_all,
-         )
+    # # GDP + SCI
+    # _ferm = FERM(
+    #     nodes,
+    #     flows_sel,
+    #     features = df_feat_all,
+    #      )
 
-    res_ferm = _ferm.run(
-        num_particles = NUM_PARTICLES,
-        sigma = SIGMA, 
-        verbose = False).comparison
+    # res_ferm = _ferm.run(
+    #     num_particles = NUM_PARTICLES,
+    #     sigma = SIGMA, 
+    #     verbose = False).comparison
 
-    # GDP
-    _ferm = FERM(
-        nodes,
-        flows_sel,
-        features = df_feat_nodes,
-         )
+    # # GDP
+    # _ferm = FERM(
+    #     nodes,
+    #     flows_sel,
+    #     features = df_feat_nodes,
+    #      )
 
-    res_ferm_GDP = _ferm.run(
-        num_particles = NUM_PARTICLES,
-        sigma = SIGMA, 
-        verbose = False).comparison
+    # res_ferm_GDP = _ferm.run(
+    #     num_particles = NUM_PARTICLES,
+    #     sigma = SIGMA, 
+    #     verbose = False).comparison
 
-    # RM
-    _rm = RM(
-            nodes,
-            flows_sel,
-            )
+    # # RM
+    # _rm = RM(
+    #         nodes,
+    #         flows_sel,
+    #         )
 
-    res_rm = _rm.run().comparison
-    return res_ferm, res_ferm_GDP, res_rm
+    # res_rm = _rm.run().comparison
+    return
 
 
 @app.cell
@@ -318,12 +330,12 @@ def _(np, pd, res_ferm, res_ferm_GDP, res_rm):
     R2_ferm = coefficient_of_determination(res_ferm, mode=mode)
     R2_ferm_GDP = coefficient_of_determination(res_ferm_GDP, mode=mode)
     R2_rm = coefficient_of_determination(res_rm, mode=mode)
-
+    R2s = [R2_rm, R2_ferm_GDP, R2_ferm]
 
     print(f"FERM ALL:\t{R2_ferm:.3f}")
     print(f"FERM GDP:\t{R2_ferm_GDP:.3f}")
     print(f"RM:\t\t\t{R2_rm:.3f}")
-    return
+    return (R2s,)
 
 
 @app.cell(hide_code=True)
@@ -335,7 +347,7 @@ def _(mo):
 
 
 @app.cell
-def _(Axes, FIGDIR, np, pd, plt, res_ferm, res_rm):
+def _(Axes, FIGDIR, R2s, np, pd, plt, res_ferm, res_ferm_GDP, res_rm):
     def plot_scatter(df:pd.DataFrame, label:str="FERM", ax:Axes=None):
         """
         Plot data versus model predictions
@@ -343,7 +355,7 @@ def _(Axes, FIGDIR, np, pd, plt, res_ferm, res_rm):
         # Filter dataset
         df = df.loc[
         (df["num_migrants"]>0) & (df["predicted_migrants"]>0),:]
-    
+
         n_bins = 12
         if ax is None:
             ax: Axes
@@ -351,7 +363,7 @@ def _(Axes, FIGDIR, np, pd, plt, res_ferm, res_rm):
 
         x = df["num_migrants"].to_numpy()
         y = df["predicted_migrants"].to_numpy()
-    
+
         ax.scatter(
             x=x, 
             y=y,
@@ -418,8 +430,6 @@ def _(Axes, FIGDIR, np, pd, plt, res_ferm, res_rm):
             zorder=2,
         )
 
-    
-    
         ax.plot([1e-1,1e6],[1e-1,1e6],color="tab:red",linestyle="--",alpha=0.95)
         ax.set_ylabel("Migrants (model)", fontsize=18)
         ax.set_xlabel("Migrants (data)", fontsize=18)
@@ -432,26 +442,24 @@ def _(Axes, FIGDIR, np, pd, plt, res_ferm, res_rm):
 
 
     # plot_scatter(res_rm_agg)
-    df_list, labels = [res_rm, res_ferm], ["RM", "FERM"]
-    fig, _axes = plt.subplots(1,2,figsize=(12,6))
+    df_list, labels = [res_rm, res_ferm_GDP, res_ferm], ["RM", "FERM GDP", "FERM GDP+SCI"]
+    fig, _axes = plt.subplots(1,3,figsize=(18,6))
 
     for _idx, _ax in enumerate(_axes):
-        plot_scatter(df=df_list[_idx], ax=_ax, label=labels[_idx])
+        _ax = plot_scatter(df=df_list[_idx], ax=_ax, label=labels[_idx])
+        _ax.text(x=0.1, y=0.9, s=f"R² = {R2s[_idx]:.3f}", transform=_ax.transAxes, fontsize=18)
+        if _idx != 0:
+            _ax.set_ylabel(" ")
 
     plt.savefig(FIGDIR / "scatter_plot.pdf", bbox_inches="tight")
     plt.show()
-
-
-    return
+    return (plot_scatter,)
 
 
 @app.cell
 def _(data):
     # pd.DataFrame(data={"a":res_ferm["predicted_migrants"], "b":res_ferm["predicted_migrants"].round()})
-
-
     data
-
     return
 
 
@@ -481,7 +489,7 @@ def _(Axes, FIGDIR, np, plt, res_ferm, res_rm):
             np.log10((df1["predicted_migrants"] + EPS) / (df1["num_migrants"] + EPS)))
         df2["abs_log_ratio"] = np.abs(
             np.log10((df2["predicted_migrants"] + EPS) / (df2["num_migrants"] + EPS)))
-    
+
         ax: Axes
         fig, ax = plt.subplots(figsize=(5,5))
         ax.scatter(
@@ -826,20 +834,6 @@ def _(mo):
     return
 
 
-@app.cell
-def _(config, pd):
-    def load_stock_matrix(stock_path, normalize:True) -> pd.DataFrame:
-
-        df = pd.read_csv(config.stock_path, index_col=0)
-
-        if normalize:
-            data = df.to_numpy()
-            pass
-        return df
-
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -895,8 +889,311 @@ def _(pd):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Map for Figure 1
+    """)
+    return
+
+
+@app.cell
+def _(Axes, FIGDIR, plt):
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+
+
+    _proj = ccrs.LambertConformal(central_longitude=100, central_latitude=45, standard_parallels=(30, 60),)
+    _proj = ccrs.Mollweide(central_longitude=100)
+    _ax: Axes
+    _ax = plt.subplot(111, projection=_proj)
+    _ax.coastlines()
+    _ax.add_feature(cfeature.BORDERS)
+    _ax.add_feature(cfeature.OCEAN)
+    _ax.add_feature(cfeature.LAND)
+    # _ax.set_extent([25, 180, -10, 80], crs=ccrs.PlateCarree())
+    _ax.set_extent([60, 110, 5, 38], crs=ccrs.PlateCarree()) # India
+
+    plt.savefig(FIGDIR / "map_Figure1.png", dpi=150)
+    plt.show()
+    return
+
+
+@app.cell
+def _(flows):
+    flows
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    # Analysis US states
+    """)
+    return
+
+
+@app.cell
+def _(pd):
+    gdp_df_states = pd.read_csv("data/US_census_data/features/GDP/gdp_per_capita_2014_states.csv")
+    sci_df_states = pd.read_csv("data/US_census_data/features/SCI/us_states_SCI_2026_norm.csv")
+    sci_df_states.head()
+    return gdp_df_states, sci_df_states
+
+
 @app.cell
 def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Build relational features US
+    """)
+    return
+
+
+@app.cell
+def _(gdp_df_states, load_relational_features_US, sci_df_states):
+    df_feat_all_us, df_us, dfr_us = load_relational_features_US(
+        df_rel=sci_df_states,
+        df=gdp_df_states,
+        fillna=False,
+    )
+    df_feat_all_us
+    return df_feat_all_us, df_us
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(np, pd):
+    def load_relational_features_US(
+        df_rel: pd.DataFrame = None,
+        df: pd.DataFrame = None,
+        niche_name_nodes: str = "gdp_per_capita_2014",
+        niche_name_relational: str = "scaled_sci_2016_norm",
+        normalize: str = "log_zscore",
+        fillna: bool = True,
+    ) -> pd.DataFrame:
+
+        #/ Node feature matrix
+        df["log_gdp"] = np.log(df[niche_name_nodes])
+        df["log_gdp_norm"] = (df["log_gdp"]- df["log_gdp"].mean())/df["log_gdp"].std()
+        df = df.rename(columns={"state_fips":"state_fips_o"})
+        df["state_fips_d"] = df["state_fips_o"]
+
+        # Build node feature matrix
+        df = df.pivot(index="state_fips_o", columns="state_fips_d", values="log_gdp_norm")
+        df = df.ffill(axis=0).bfill(axis=0) # Fill rows
+        # print(df)
+
+        #/ Relational feature matrix
+        dfr = df_rel.pivot(
+            index="state_from",
+            columns="state_to",
+            values=niche_name_relational,
+        )
+        # print(dfr)
+
+        if fillna:
+            # print(1-(np.isnan(df.to_numpy()).sum()-235)/(235*234)) # Count nan
+            dfr.fillna(dfr.mean().mean(), inplace=True)
+
+        # Fill to zero the diagonal terms
+        for label in dfr.index:
+            dfr.loc[label, label] = 0
+        # print(dfr)
+
+        # Combine (add) node features with relational features
+        common_cols = df.index.intersection(dfr.index)
+        dfr = dfr.loc[common_cols, common_cols]
+        df = df.loc[common_cols, common_cols]
+
+        df_all = dfr + df
+
+        # dfr = dfr.add(df.loc[common_cols, "log_gdp_norm"],axis="index")
+
+        return df_all, df, dfr
+
+
+    return (load_relational_features_US,)
+
+
+@app.cell
+def _():
+    # df_feat_all
+    return
+
+
+@app.cell
+def _(pd):
+    nodes_us = pd.read_csv("./data/US_census_data/center_of_population/CenPop2020_Mean_ST.txt")
+    nodes_us.head(5)
+    return (nodes_us,)
+
+
+@app.cell
+def _(pd):
+    year = "1516"
+    flows_us = pd.read_csv(f"./data/US_census_data/migrations/{year}migrationdata/stateoutflow{year}.csv")
+
+    # Filter "non state" rows (fips code < 59)
+    flows_us = flows_us.loc[
+        ((flows_us["y1_statefips"].astype(int) < 59) & (flows_us["y2_statefips"].astype(int) < 59)),:]
+
+    # Filter out sci within the same country
+    flows_us = flows_us.loc[
+        flows_us["y1_statefips"] != flows_us["y2_statefips"],:
+        ]
+    flows_us.reset_index(inplace=True)
+    flows_us.rename(columns={"n2":"num_migrants"}, inplace=True)
+    flows_us.head(5)
+    return (flows_us,)
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(res_ferm_us):
+    res_ferm_us
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Run models
+    """)
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(
+    FERM,
+    NUM_PARTICLES,
+    RM,
+    SIGMA,
+    df_feat_all_us,
+    df_us,
+    flows_us,
+    nodes_us,
+):
+    # GDP + SCI
+    _ferm = FERM(
+        nodes_us,
+        flows_us,
+        features = df_feat_all_us,
+        node_col="statefp",
+         )
+
+    res_ferm_us = _ferm.run(
+        num_particles = NUM_PARTICLES,
+        sigma = SIGMA, 
+        origin_col="y1_statefips",
+        dest_col="y2_statefips",
+        flow_col="num_migrants",
+        verbose = False
+    ).comparison
+
+    # GDP
+    _ferm = FERM(
+        nodes_us,
+        flows_us,
+        features = df_us,
+        node_col="statefp",
+         )
+
+    res_ferm_us_GDP = _ferm.run(
+        num_particles = NUM_PARTICLES,
+        sigma = SIGMA, 
+        origin_col="y1_statefips",
+        dest_col="y2_statefips",
+        flow_col="num_migrants",
+        verbose = False
+    ).comparison
+
+    # Radiation model
+    _rm = RM(
+            nodes_us,
+            flows_us,
+            node_col="statefp",
+            )
+
+    res_rm_us = _rm.run(
+        origin_col="y1_statefips",
+        dest_col="y2_statefips",
+        flow_col="num_migrants",
+    ).comparison
+    return res_ferm_us, res_ferm_us_GDP, res_rm_us
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Plot results US
+    """)
+    return
+
+
+@app.cell
+def _(FIGDIR, R2s, plot_scatter, plt, res_ferm_us, res_ferm_us_GDP, res_rm_us):
+    # plot_scatter(res_rm_agg)
+    _df_list, _labels = [res_rm_us, res_ferm_us_GDP, res_ferm_us], ["RM", "FERM GDP", "FERM GDP+SCI"]
+    _fig, _axes = plt.subplots(1,3,figsize=(18,6))
+
+    for _idx, _ax in enumerate(_axes):
+        _ax = plot_scatter(df=_df_list[_idx], ax=_ax, label=_labels[_idx])
+        _ax.text(x=0.1, y=0.9, s=f"R² = {R2s[_idx]:.3f}", transform=_ax.transAxes, fontsize=18)
+        if _idx != 0:
+            _ax.set_ylabel(" ")
+
+    plt.savefig(FIGDIR / "scatter_plot_US.pdf", bbox_inches="tight")
+    plt.show()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+ 
+    """)
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+
+
+    return
+
+
+@app.cell
+def _():
+
+
     return
 
 

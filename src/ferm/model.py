@@ -51,6 +51,7 @@ def normalize_country_code_to_iso3(code: object) -> object:
 def validate_nodes(
     nodes: pd.DataFrame,
     required_columns: set[str],
+    node_col:str = "iso3",
 ) -> None:
     """
     Validate the node table used by the mobility models.
@@ -75,12 +76,12 @@ def validate_nodes(
     if missing:
         raise ValueError(f"`nodes` is missing required columns: {sorted(missing)}")
 
-    if nodes["iso3"].isna().any():
+    if nodes[node_col].isna().any():
         raise ValueError("`nodes['code']` must not contain missing values.")
 
-    if not nodes["iso3"].is_unique:
+    if not nodes[node_col].is_unique:
         duplicated = nodes.loc[nodes["code"].duplicated(), "code"].tolist()
-        raise ValueError(f"`ISO3` values must be unique. Duplicates: {duplicated}")
+        raise ValueError(f"Node codes must be unique. Duplicates: {duplicated}")
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +115,7 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2.0 * EARTH_RADIUS_KM * atan2(sqrt(a), sqrt(1.0 - a))
 
 
-def build_distance_matrix(nodes: pd.DataFrame) -> pd.DataFrame:
+def build_distance_matrix(nodes: pd.DataFrame, node_col:str="iso3") -> pd.DataFrame:
     """
     Build the pairwise great-circle distance matrix between nodes.
 
@@ -128,10 +129,9 @@ def build_distance_matrix(nodes: pd.DataFrame) -> pd.DataFrame:
     pd.DataFrame
         Square distance matrix indexed and columned by node code.
     """
-    validate_nodes(nodes, {"iso3", "lat", "lon"})
 
-    codes = nodes["iso3"].to_numpy()
-    coords = nodes.set_index("iso3")[["lat", "lon"]].astype(float)
+    codes = nodes[node_col].to_numpy()
+    coords = nodes.set_index(node_col)[["lat", "lon"]].astype(float)
 
     lat = np.radians(coords["lat"].to_numpy())
     lon = np.radians(coords["lon"].to_numpy())
@@ -258,6 +258,7 @@ class FERM:
         nodes: pd.DataFrame,
         flows: pd.DataFrame,
         features: pd.DataFrame | np.ndarray,
+        node_col: str = "iso3",
     ) -> None:
         """
         Parameters
@@ -278,24 +279,24 @@ class FERM:
         # validate_nodes(nodes, {"code", "iso3", "population", "lat", "lon"})
         self.nodes: pd.DataFrame = nodes.copy()
         self.flows = flows        
-        self.features = self._prepare_attractiveness_matrix(features)
-        self.distance_matrix = build_distance_matrix(self.nodes)   
-        
-    def _check_inputs(nodes, features, flows):
+        self.features = self._prepare_attractiveness_matrix(features, node_col=node_col)
+        self.distance_matrix = build_distance_matrix(self.nodes, node_col=node_col)   
+        self.node_col = node_col
+
+    def _check_inputs(nodes, features, flows, node_col):
         #TODO
-        codes = nodes["iso3"]
-        
-    
+        codes = nodes[node_col]
         
 
     def _prepare_attractiveness_matrix(
         self,
         features: pd.DataFrame,
+        node_col: str = "iso3",
     ) -> pd.DataFrame:
         """
         Validate and align the Sigma attractiveness matrix.
         """
-        codes = self.nodes["iso3"].tolist()        
+        codes = self.nodes[node_col].tolist()        
         missing_rows = set(codes) - set(features.index)
         missing_cols = set(codes) - set(features.columns)
         if missing_rows or missing_cols:
@@ -315,6 +316,10 @@ class FERM:
         self,
         num_particles: int = 300,
         sigma: float = 0.15,
+        origin_col: str = "country_from",
+        dest_col: str = "country_to",
+        flow_col: str = "num_migrants",
+        pred_col: str = "predicted_migrants",
         verbose: bool = False,
         rng: Optional[np.random.Generator] = None,
     ) -> pd.DataFrame:
@@ -347,7 +352,7 @@ class FERM:
         if rng is None:
             rng = np.random.default_rng()
 
-        nodes = self.nodes.set_index("iso3")
+        nodes = self.nodes.set_index(self.node_col)
         populations = nodes["population"].round().clip(lower=1).astype(int)
         Sigma = self.features
         D = self.distance_matrix
@@ -407,7 +412,12 @@ class FERM:
         comparison = predicted_flows_from_probabilities(
             self.flows, 
             probabilities, 
-            nodes=nodes
+            nodes=nodes,
+            origin_col=origin_col,
+            dest_col=dest_col,
+            flow_col=flow_col,
+            pred_col=pred_col,
+            eps = DEFAULT_EPS,
             )
 
         return RadiationRunResult(
@@ -443,6 +453,7 @@ class RM:
                  nodes: pd.DataFrame,
                  flows: pd.DataFrame,
                  eps: float = DEFAULT_EPS,
+                 node_col: str = "iso3",
                  distance_matrix: Optional[pd.DataFrame | np.ndarray] = None) -> None:
         """
         Parameters
@@ -462,18 +473,19 @@ class RM:
             Rows are origins and columns are destinations. If omitted, distances
             are computed from `nodes['lat']` and `nodes['lon']`.
         """
-        validate_nodes(nodes, {"iso3", "population", "lat", "lon"})
+        validate_nodes(nodes, {node_col, "population", "lat", "lon"}, node_col=node_col)
+        self.node_col: str = node_col
         self.nodes: pd.DataFrame = nodes.copy()
         self.flows: pd.DataFrame = flows.copy()
         self.eps: float = float(eps)
-        self.distance_matrix = build_distance_matrix(self.nodes)
-
+        self.distance_matrix = build_distance_matrix(self.nodes,node_col=node_col)
 
 
     @staticmethod
     def build_intervening_population_matrix(
         nodes: pd.DataFrame,
         distance_matrix: pd.DataFrame,
+        node_col:str="iso3",
     ) -> pd.DataFrame:
         """
         Compute the intervening-population matrix S.
@@ -493,10 +505,10 @@ class RM:
         pd.DataFrame
             Intervening-population matrix.
         """
-        validate_nodes(nodes, {"iso3", "population"})
+        validate_nodes(nodes, {node_col, "population"}, node_col=node_col)
 
-        codes = nodes["iso3"].tolist()
-        populations = nodes.set_index("iso3")["population"].astype(float)
+        codes = nodes[node_col].tolist()
+        populations = nodes.set_index(node_col)["population"].astype(float)
         S = pd.DataFrame(0.0, index=codes, columns=codes)
 
         for origin in codes:
@@ -515,8 +527,8 @@ class RM:
 
         return S
 
-    @staticmethod
     def radiation_probabilities(
+        self,
         nodes: pd.DataFrame,
         intervening_population_matrix: pd.DataFrame,
     ) -> pd.DataFrame:
@@ -535,10 +547,10 @@ class RM:
         pd.DataFrame
             Probability matrix.
         """
-        validate_nodes(nodes, {"iso3", "population"})
+        validate_nodes(nodes, {self.node_col, "population"}, node_col=self.node_col)
 
-        populations = nodes.set_index("iso3")["population"].astype(float)
-        codes = nodes["iso3"].tolist()
+        populations = nodes.set_index(self.node_col)["population"].astype(float)
+        codes = nodes[self.node_col].tolist()
 
         probabilities = pd.DataFrame(0.0, index=codes, columns=codes)
 
@@ -586,7 +598,7 @@ class RM:
             probability matrix, and optional comparison table.
         """
         D = self.distance_matrix
-        S = self.build_intervening_population_matrix(self.nodes, D)
+        S = self.build_intervening_population_matrix(self.nodes, D, node_col=self.node_col)
         P = self.radiation_probabilities(self.nodes, S)
 
         if renormalize:
@@ -661,7 +673,7 @@ def add_error_columns(
 def predicted_flows_from_probabilities(
     flows: pd.DataFrame,
     P: pd.DataFrame,
-    nodes: Optional[pd.DataFrame] = None,
+    nodes: pd.DataFrame,
     origin_col: str = "country_from",
     dest_col: str = "country_to",
     flow_col: str = "num_migrants",
@@ -693,14 +705,14 @@ def predicted_flows_from_probabilities(
     """
     
     flows = flows.groupby([origin_col, dest_col], as_index=False)[flow_col].sum()
-    
     outflow = flows.groupby(origin_col)[flow_col].sum()
-    outflow.index = outflow.index.map(normalize_country_code_to_iso3)
+
+    if {"iso3"}.issubset(nodes.columns):
+        outflow.index = outflow.index.map(normalize_country_code_to_iso3)
     
     total_outflow = outflow.reindex(P.index).fillna(0.0).to_numpy()
 
     predicted_matrix = total_outflow[:, None] * P.to_numpy()
-
     predicted = pd.DataFrame(predicted_matrix, index=P.index, columns=P.columns)
     predicted.index.name = origin_col
     predicted.columns.name = dest_col
@@ -710,19 +722,7 @@ def predicted_flows_from_probabilities(
 
     comparison = flows.merge(predicted, on=[origin_col, dest_col], how="outer")
 
-    if nodes is not None and {"iso3", "country_name"}.issubset(nodes.columns):
-        name_map = nodes.set_index("iso3")["country_name"].to_dict()
-        comparison["country_from_name"] = (
-            comparison[origin_col]
-            .map(name_map)
-            .fillna(comparison[origin_col].map(iso3_to_country))
-        )
-        comparison["country_to_name"] = (
-            comparison[dest_col]
-            .map(name_map)
-            .fillna(comparison[dest_col].map(iso3_to_country))
-        )
-    else:
+    if {"iso3"}.issubset(nodes.columns):
         comparison["country_from_name"] = comparison[origin_col].map(iso3_to_country)
         comparison["country_to_name"] = comparison[dest_col].map(iso3_to_country)
 
