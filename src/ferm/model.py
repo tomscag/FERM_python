@@ -264,11 +264,9 @@ class FERM:
         Parameters
         ----------
         nodes : pd.DataFrame
-            Node table containing at least:
-            - `code` : unique node identifier
-            - `population` : node population
-            - `lat` : latitude in degrees
-            - `lon` : longitude in degrees
+            Node table containing at least `code`, `iso3`, and `population`.
+            If `distance_matrix` is omitted, `lat` and `lon` are also required
+            to compute great-circle distances.
         flows : pd.DataFrame
             Observed flows
         features : pd.DataFrame or np.ndarray
@@ -281,7 +279,10 @@ class FERM:
             Rows are origins and columns are destinations. If omitted, distances
             are computed from `nodes['lat']` and `nodes['lon']`.
         """
-        validate_nodes(nodes, {"code", "iso3", "population", "lat", "lon"})
+        required_columns = {"code", "iso3", "population"}
+        if distance_matrix is None:
+            required_columns.update({"lat", "lon"})
+        validate_nodes(nodes, required_columns)
         self.nodes: pd.DataFrame = nodes.copy()
         self.flows = flows
         self.features = self._prepare_attractiveness_matrix(features)
@@ -435,7 +436,10 @@ class FERM:
                 rng=rng,
             )
 
-            destinations = [d for d in D.loc[origin].sort_values().index if d != origin]
+            destinations = sorted(
+                (d for d in D.columns if d != origin),
+                key=lambda d: (D.loc[origin, d], str(d)),
+            )
 
             assigned = np.zeros(num_particles, dtype=bool)
             counts = pd.Series(0.0, index=nodes.index)
@@ -473,7 +477,7 @@ class FERM:
         comparison = predicted_flows_from_probabilities(
             self.flows, 
             probabilities, 
-            nodes=nodes
+            nodes=self.nodes
             )
 
         return RadiationRunResult(
@@ -513,11 +517,9 @@ class RM:
         Parameters
         ----------
         nodes : pd.DataFrame
-            Node table containing at least:
-            - `code`
-            - `population`
-            - `lat`
-            - `lon`
+            Node table containing at least `code`, `iso3`, and `population`.
+            If `distance_matrix` is omitted, `lat` and `lon` are also required
+            to compute great-circle distances.
         flows : pd.DataFrame
             Observed flows
         eps : float, default=1.0
@@ -527,7 +529,10 @@ class RM:
             Rows are origins and columns are destinations. If omitted, distances
             are computed from `nodes['lat']` and `nodes['lon']`.
         """
-        validate_nodes(nodes, {"code", "population", "lat", "lon"})
+        required_columns = {"code", "iso3", "population"}
+        if distance_matrix is None:
+            required_columns.update({"lat", "lon"})
+        validate_nodes(nodes, required_columns)
         self.nodes: pd.DataFrame = nodes.copy()
         self.flows: pd.DataFrame = flows.copy()
         self.eps: float = float(eps)
