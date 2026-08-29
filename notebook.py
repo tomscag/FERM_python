@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.11"
+__generated_with = "0.24.0"
 app = marimo.App(width="medium")
 
 
@@ -181,7 +181,7 @@ def _(flows):
     flows_sel = flows.loc[(flows.year==2019)  & (flows.month <=12)]
     flows_sel = flows_sel.groupby(["country_from", "country_to"], as_index=False)["num_migrants"].sum()
     flows_sel
-    return
+    return (flows_sel,)
 
 
 @app.cell(hide_code=True)
@@ -245,7 +245,7 @@ def _(Literal, load_niche_data, np, pd):
         node_feature="gdp_per_capita_2018",
     )
     df_feat_all
-    return (df_feat_all,)
+    return df_feat_all, df_feat_nodes
 
 
 @app.cell
@@ -268,52 +268,52 @@ def _(mo):
 
 
 @app.cell
+def _(FERM, RM, df_feat_all, df_feat_nodes, flows_sel, nodes):
+    SIGMA = 5.0
+    NUM_PARTICLES = int(10e4)
+
+    # GDP + SCI
+    _ferm = FERM(
+        nodes,
+        flows_sel,
+        features = df_feat_all,
+         )
+
+    res_ferm = _ferm.run(
+        num_particles = NUM_PARTICLES,
+        sigma = SIGMA, 
+        verbose = False).comparison
+
+    # GDP
+    _ferm = FERM(
+        nodes,
+        flows_sel,
+        features = df_feat_nodes,
+         )
+
+    res_ferm_GDP = _ferm.run(
+        num_particles = NUM_PARTICLES,
+        sigma = SIGMA, 
+        verbose = False).comparison
+
+    # RM
+    _rm = RM(
+            nodes,
+            flows_sel,
+            )
+
+    res_rm = _rm.run().comparison
+    return NUM_PARTICLES, SIGMA, res_ferm, res_ferm_GDP, res_rm
+
+
+@app.cell
 def _():
-    # SIGMA = 5.0
-    # NUM_PARTICLES = int(10e4)
-
-    # # GDP + SCI
-    # _ferm = FERM(
-    #     nodes,
-    #     flows_sel,
-    #     features = df_feat_all,
-    #      )
-
-    # res_ferm = _ferm.run(
-    #     num_particles = NUM_PARTICLES,
-    #     sigma = SIGMA, 
-    #     verbose = False).comparison
-
-    # # GDP
-    # _ferm = FERM(
-    #     nodes,
-    #     flows_sel,
-    #     features = df_feat_nodes,
-    #      )
-
-    # res_ferm_GDP = _ferm.run(
-    #     num_particles = NUM_PARTICLES,
-    #     sigma = SIGMA, 
-    #     verbose = False).comparison
-
-    # # RM
-    # _rm = RM(
-    #         nodes,
-    #         flows_sel,
-    #         )
-
-    # res_rm = _rm.run().comparison
     return
 
 
 @app.cell
-def _():
-    return
-
-
-@app.cell
-def _(np, pd, res_ferm, res_ferm_GDP, res_rm):
-    def coefficient_of_determination(df:pd.DataFrame, mode:str="log") -> float:
+def _(np, pd):
+    def coefficient_of_determination(df:pd.DataFrame, mode:str="normal") -> float:
 
         if mode == "log":
             df = df.loc[ (df["num_migrants"] >0) & (df["predicted_migrants"] >0),:]
@@ -326,6 +326,11 @@ def _(np, pd, res_ferm, res_ferm_GDP, res_rm):
         R2 = 1 - SS_res/SS_tot
         return R2
 
+    return (coefficient_of_determination,)
+
+
+@app.cell
+def _(coefficient_of_determination, res_ferm, res_ferm_GDP, res_rm):
     mode = "normal"
     R2_ferm = coefficient_of_determination(res_ferm, mode=mode)
     R2_ferm_GDP = coefficient_of_determination(res_ferm_GDP, mode=mode)
@@ -335,19 +340,27 @@ def _(np, pd, res_ferm, res_ferm_GDP, res_rm):
     print(f"FERM ALL:\t{R2_ferm:.3f}")
     print(f"FERM GDP:\t{R2_ferm_GDP:.3f}")
     print(f"RM:\t\t\t{R2_rm:.3f}")
-    return (R2s,)
+    return R2s, mode
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Scatter plot data versus models
+    # Plotting functions
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Scatter plot: data versus predictions
     """)
     return
 
 
 @app.cell
-def _(Axes, FIGDIR, R2s, np, pd, plt, res_ferm, res_ferm_GDP, res_rm):
+def _(Axes, np, pd, plt):
     def plot_scatter(df:pd.DataFrame, label:str="FERM", ax:Axes=None):
         """
         Plot data versus model predictions
@@ -410,6 +423,7 @@ def _(Axes, FIGDIR, R2s, np, pd, plt, res_ferm, res_ferm_GDP, res_rm):
             widths=box_widths,
             vert=True,
             patch_artist=True,
+            whis=0,
             showfliers=False,
             manage_ticks=False,
             boxprops={
@@ -441,6 +455,11 @@ def _(Axes, FIGDIR, R2s, np, pd, plt, res_ferm, res_ferm_GDP, res_rm):
         return ax
 
 
+    return (plot_scatter,)
+
+
+@app.cell
+def _(FIGDIR, R2s, plot_scatter, plt, res_ferm, res_ferm_GDP, res_rm):
     # plot_scatter(res_rm_agg)
     df_list, labels = [res_rm, res_ferm_GDP, res_ferm], ["RM", "FERM GDP", "FERM GDP+SCI"]
     fig, _axes = plt.subplots(1,3,figsize=(18,6))
@@ -453,7 +472,7 @@ def _(Axes, FIGDIR, R2s, np, pd, plt, res_ferm, res_ferm_GDP, res_rm):
 
     plt.savefig(FIGDIR / "scatter_plot.pdf", bbox_inches="tight")
     plt.show()
-    return (plot_scatter,)
+    return
 
 
 @app.cell
@@ -466,7 +485,7 @@ def _(data):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Scatter plot residuals
+    ## Scatter plot: residuals
     """)
     return
 
@@ -843,10 +862,10 @@ def _(mo):
 
 
 @app.cell
-def _(pd):
-    df = pd.read_csv("./Gravity_csv_V202211/Gravity_V202211_bilateral_nonbinary.csv")
-    df = df.loc[df.year == 2021,:]
-    df
+def _():
+    # df = pd.read_csv("./Gravity_csv_V202211/Gravity_V202211_bilateral_nonbinary.csv")
+    # df = df.loc[df.year == 2021,:]
+    # df
 
     # Sci Min-max threshold
     # thres = 1e6
@@ -886,42 +905,6 @@ def _(pd):
     # plt.hist(df["scaled_sci_2021_minmax"], bins=100)
     # plt.yscale("log")
     # plt.show()
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Map for Figure 1
-    """)
-    return
-
-
-@app.cell
-def _(Axes, FIGDIR, plt):
-    import cartopy.crs as ccrs
-    import cartopy.feature as cfeature
-
-
-    _proj = ccrs.LambertConformal(central_longitude=100, central_latitude=45, standard_parallels=(30, 60),)
-    _proj = ccrs.Mollweide(central_longitude=100)
-    _ax: Axes
-    _ax = plt.subplot(111, projection=_proj)
-    _ax.coastlines()
-    _ax.add_feature(cfeature.BORDERS)
-    _ax.add_feature(cfeature.OCEAN)
-    _ax.add_feature(cfeature.LAND)
-    # _ax.set_extent([25, 180, -10, 80], crs=ccrs.PlateCarree())
-    _ax.set_extent([60, 110, 5, 38], crs=ccrs.PlateCarree()) # India
-
-    plt.savefig(FIGDIR / "map_Figure1.png", dpi=150)
-    plt.show()
-    return
-
-
-@app.cell
-def _(flows):
-    flows
     return
 
 
@@ -1091,9 +1074,11 @@ def _(
     NUM_PARTICLES,
     RM,
     SIGMA,
+    coefficient_of_determination,
     df_feat_all_us,
     df_us,
     flows_us,
+    mode,
     nodes_us,
 ):
     # GDP + SCI
@@ -1123,7 +1108,7 @@ def _(
 
     res_ferm_us_GDP = _ferm.run(
         num_particles = NUM_PARTICLES,
-        sigma = SIGMA, 
+        sigma = 15.0, 
         origin_col="y1_statefips",
         dest_col="y2_statefips",
         flow_col="num_migrants",
@@ -1142,7 +1127,12 @@ def _(
         dest_col="y2_statefips",
         flow_col="num_migrants",
     ).comparison
-    return res_ferm_us, res_ferm_us_GDP, res_rm_us
+
+    R2_ferm_us = coefficient_of_determination(res_ferm_us, mode=mode)
+    R2_ferm_GDP_us = coefficient_of_determination(res_ferm_us_GDP, mode=mode)
+    R2_rm_us = coefficient_of_determination(res_rm_us, mode=mode)
+    R2s_us = [R2_rm_us, R2_ferm_GDP_us, R2_ferm_us]
+    return R2s_us, res_ferm_us, res_ferm_us_GDP, res_rm_us
 
 
 @app.cell(hide_code=True)
@@ -1154,14 +1144,22 @@ def _(mo):
 
 
 @app.cell
-def _(FIGDIR, R2s, plot_scatter, plt, res_ferm_us, res_ferm_us_GDP, res_rm_us):
+def _(
+    FIGDIR,
+    R2s_us,
+    plot_scatter,
+    plt,
+    res_ferm_us,
+    res_ferm_us_GDP,
+    res_rm_us,
+):
     # plot_scatter(res_rm_agg)
     _df_list, _labels = [res_rm_us, res_ferm_us_GDP, res_ferm_us], ["RM", "FERM GDP", "FERM GDP+SCI"]
     _fig, _axes = plt.subplots(1,3,figsize=(18,6))
 
     for _idx, _ax in enumerate(_axes):
         _ax = plot_scatter(df=_df_list[_idx], ax=_ax, label=_labels[_idx])
-        _ax.text(x=0.1, y=0.9, s=f"R² = {R2s[_idx]:.3f}", transform=_ax.transAxes, fontsize=18)
+        _ax.text(x=0.1, y=0.9, s=f"R² = {R2s_us[_idx]:.3f}", transform=_ax.transAxes, fontsize=18)
         if _idx != 0:
             _ax.set_ylabel(" ")
 
@@ -1178,6 +1176,346 @@ def _(mo):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    # Analysis US Counties
+    """)
+    return
+
+
+@app.cell
+def _(pd):
+    gdp_df_counties = pd.read_csv("data/US_census_data/features/GDP/counties/gdp_per_capita_2018_counties.csv",
+                                  dtype={'gdp_per_capita_2018': float}, na_values='(NA)')
+    sci_df_counties = pd.read_csv("data/US_census_data/features/SCI/us_counties_SCI_2026_norm.csv")
+    # sci_df_counties = pd.read_csv("data/US_census_data/features/SCI/us_counties_SCI_2026_minus_log.csv")
+    sci_df_counties.head()
+    return gdp_df_counties, sci_df_counties
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Build relational features
+    """)
+    return
+
+
+@app.cell
+def _(np, pd):
+    def load_relational_features_US_counties(
+        df_rel: pd.DataFrame = None,
+        df: pd.DataFrame = None,
+        niche_name_nodes: str = "gdp_per_capita_2018",
+        niche_name_relational: str = "scaled_sci_2026_norm",
+        normalize: str = "log_zscore",
+        fillna: bool = True,
+    ) -> pd.DataFrame:
+
+        # Transform county fips to string
+        df["county_fips"] = df["county_fips"].astype(str).str.zfill(5)
+        df_rel["county_from"] = df_rel["county_from"].astype(str).str.zfill(5)
+        df_rel["county_to"] = df_rel["county_to"].astype(str).str.zfill(5)
+        # print(df_rel)
+
+        #/ Node feature matrix
+        df["log_gdp"] = np.log(df[niche_name_nodes])
+        df["log_gdp_norm"] = (df["log_gdp"]- df["log_gdp"].mean())/df["log_gdp"].std()
+        df = df.rename(columns={"county_fips":"county_fips_o"})
+        df["county_fips_d"] = df["county_fips_o"]
+
+        # Build node feature matrix
+        df = df.pivot(index="county_fips_o", columns="county_fips_d", values="log_gdp_norm")
+        df = df.ffill(axis=0).bfill(axis=0) # Fill rows
+        # print(df)
+
+        #/ Relational feature matrix
+        dfr = df_rel.pivot(
+            index="county_from",
+            columns="county_to",
+            values=niche_name_relational,
+        )
+        # print(dfr)
+
+        if fillna:
+            # print(1-(np.isnan(df.to_numpy()).sum()-235)/(235*234)) # Count nan
+            dfr.fillna(dfr.mean().mean(), inplace=True)
+
+        # Fill to zero the diagonal terms
+        for label in dfr.index:
+            dfr.loc[label, label] = 0
+        # print(dfr)
+
+        # Combine (add) node features with relational features
+        common_cols = df.index.intersection(dfr.index)
+        dfr = dfr.loc[common_cols, common_cols]
+        df = df.loc[common_cols, common_cols]
+
+        df_all = dfr + df
+
+        # dfr = dfr.add(df.loc[common_cols, "log_gdp_norm"],axis="index")
+
+        return df_all, df, dfr
+
+
+    return (load_relational_features_US_counties,)
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(
+    gdp_df_counties,
+    load_relational_features_US_counties,
+    pd,
+    sci_df_counties,
+):
+    _year = "1516"  # 1415 default
+    flows_us_c = pd.read_csv(f"./data/US_census_data/migrations/{_year}migrationdata/countyoutflow{_year}.csv")
+
+    #\Filter "non state" rows (fips code <= 56). State code 57-59 are for other flows and foreign flows
+    flows_us_c = flows_us_c.loc[
+        ((flows_us_c["y1_statefips"].astype(int) <= 56) & (flows_us_c["y2_statefips"].astype(int) <=56)),:]
+
+    flows_us_c.rename(columns={"n2":"num_migrants"}, inplace=True)
+
+    #\ Create string fips columns for source and target 
+    flows_us_c["y1_fips"] = (
+        flows_us_c["y1_statefips"].astype(str).str.zfill(2) + flows_us_c["y1_countyfips"].astype(str).str.zfill(3)
+    )
+
+    flows_us_c["y2_fips"] = (
+        flows_us_c["y2_statefips"].astype(str).str.zfill(2) + flows_us_c["y2_countyfips"].astype(str).str.zfill(3)
+    )
+    flows_us_c = flows_us_c.loc[:, ["y1_fips", "y2_fips", "num_migrants"]]
+
+    #\ Filter out sci within the same country
+    flows_us_c = flows_us_c.loc[
+        flows_us_c["y1_fips"] != flows_us_c["y2_fips"],:
+        ]
+    #####################
+    #####################
+    #####################
+
+    #\ Set Nan to zero (-1: "Suppressed data value" as for doc)
+    print(f"Nan values: {sum(flows_us_c["num_migrants"] == -1)}")
+    flows_us_c.loc[flows_us_c["num_migrants"] == -1, "num_migrants"] = 0  
+    flows_us_c.reset_index(drop=True, inplace=True)
+    flows_us_c.head(5)
+
+
+    nodes_us_c = pd.read_csv("./data/US_census_data/center_of_population/CenPop2020_Mean_CO.txt")
+    nodes_us_c["fips"] = (nodes_us_c["STATEFP"].astype(str).str.zfill(2) + nodes_us_c["COUNTYFP"].astype(str).str.zfill(3))
+    nodes_us_c.drop(columns=["STATEFP","COUNTYFP"], inplace=True)
+    nodes_us_c.rename(columns={"POPULATION":"population", "LATITUDE":"lat", "LONGITUDE":"lon"}, inplace=True)
+    # nodes_us_c = nodes_us_c.set_index("fips")
+    # nodes_us_c.head(5)
+
+    # For testing
+    # nodes_us_c = nodes_us_c.iloc[:750,:]
+
+    nodes_us_c = nodes_us_c.set_index("fips")
+
+    # Select just ones in flows_us_c
+    intersection = (set(flows_us_c["y1_fips"]) | set(flows_us_c["y2_fips"])) &  set(nodes_us_c.index)
+
+    nodes_us_c = nodes_us_c.loc[list(intersection),:]
+    flows_us_c = flows_us_c.loc[flows_us_c["y1_fips"].isin(intersection) & flows_us_c["y2_fips"].isin(intersection),:]
+
+
+    # Intersection with relational features
+    df_all_us_c, df_us_c, dfr_us_c = load_relational_features_US_counties(
+        df_rel=sci_df_counties,
+        df=gdp_df_counties,
+        fillna=False,
+    )
+
+    common_idx = nodes_us_c.index.intersection(df_all_us_c.index)
+    nodes_us_c = nodes_us_c.loc[common_idx]
+    df_all_us_c = df_all_us_c.loc[common_idx, common_idx]
+
+    nodes_us_c.reset_index(drop=False, inplace=True, names="fips")
+    return dfr_us_c, flows_us_c, nodes_us_c
+
+
+@app.cell
+def _():
+    # plt.imshow(df_all_us_c.to_numpy()[0:30,:30])
+    # plt.colorbar()
+    # plt.show()
+
+    # dfr_us_c
+    # flows_us_c.reset_index(drop=True)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Run models
+    """)
+    return
+
+
+@app.cell
+def _(FERM, NUM_PARTICLES, dfr_us_c, flows_us_c, nodes_us_c):
+    VERBOSE = False
+    SIGMA1 = 5
+    # GDP + SCI
+    # _ferm = FERM(
+    #     nodes_us_c,
+    #     flows_us_c,
+    #     features = df_all_us_c,
+    #     node_col="fips",
+    #      )
+
+    # res_ferm_us_c = _ferm.run(
+    #     num_particles = NUM_PARTICLES,
+    #     sigma = SIGMA1, 
+    #     origin_col="y1_fips",
+    #     dest_col="y2_fips",
+    #     flow_col="num_migrants",
+    #     verbose = VERBOSE
+    # ).comparison
+
+    # GDP
+    _ferm = FERM(
+        nodes_us_c,
+        flows_us_c,
+        features = dfr_us_c,
+        node_col="fips",
+         )
+
+    res_ferm_us_GDP_c = _ferm.run(
+        num_particles = NUM_PARTICLES,
+        sigma = SIGMA1, 
+        origin_col="y1_fips",
+        dest_col="y2_fips",
+        flow_col="num_migrants",
+        verbose = VERBOSE
+    ).comparison
+
+    # Radiation model
+    # _rm = RM(
+    #         nodes_us_c,
+    #         flows_us_c,
+    #         node_col="fips",
+    #         )
+
+    # res_rm_us_c = _rm.run(
+    #     origin_col="y1_fips",
+    #     dest_col="y2_fips",
+    #     flow_col="num_migrants",
+    # ).comparison
+    return (res_ferm_us_GDP_c,)
+
+
+@app.cell
+def _(coefficient_of_determination, mode, res_rm_us_c):
+    ress = coefficient_of_determination(res_rm_us_c, mode=mode)
+    print(ress)
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    # res_rm_us_c.loc[:,["y1_fips","y2_fips","num_migrants","predicted_migrants"]].to_csv(f"./results/predicted_flows+Radiation.csv",index=False)
+    # res_ferm_us_GDP_c.loc[:,["y1_fips","y2_fips","num_migrants","predicted_migrants"]].to_csv(f"./results/predicted_flows+SCI+Sigma_{SIGMA1}+year_{year}.csv", index=False)
+    return
+
+
+@app.cell
+def _():
+    # _fig, _ax = plt.subplots()
+    # plot_scatter(df=res_ferm_us_GDP_c, ax=_ax, label="test")
+    return
+
+
+@app.cell
+def _(
+    coefficient_of_determination,
+    mode,
+    res_ferm_us_GDP_c,
+    res_ferm_us_c,
+    res_rm_us_c,
+):
+    R2_ferm_us_c = coefficient_of_determination(res_ferm_us_c, mode=mode)
+    R2_ferm_GDP_us_c = coefficient_of_determination(res_ferm_us_GDP_c, mode=mode)
+    R2_rm_us_c = coefficient_of_determination(res_rm_us_c, mode=mode)
+    R2s_us_c = [R2_rm_us_c, R2_ferm_us_c, R2_ferm_GDP_us_c]
+    R2s_us_c
+    return (R2s_us_c,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Plot results counties
+    """)
+    return
+
+
+@app.cell
+def _(pd):
+    res_rm_c = pd.read_csv("./results/predicted_flows+Radiation.csv")
+    res_ferm_c = pd.read_csv(f"./results/predicted_flows+SCI+Sigma_5+year_1516.csv")
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(FIGDIR, R2s_us_c, plot_scatter, plt, res_ferm_us_GDP_c, res_rm_us_c):
+    # _df_list, _labels = [res_rm_us_c, res_ferm_us_c, res_ferm_us_GDP_c], ["RM", "FERM GDP+SCI", "FERM SCI"]
+    _df_list, _labels = [res_rm_us_c, res_ferm_us_GDP_c], ["RM",  "FERM SCI"]
+    _fig, _axes = plt.subplots(1,3,figsize=(18,6))
+
+    for _idx, _ax in enumerate(_axes):
+        _ax = plot_scatter(df=_df_list[_idx], ax=_ax, label=_labels[_idx])
+        _ax.text(x=0.1, y=0.9, s=f"R² = {R2s_us_c[_idx]:.3f}", transform=_ax.transAxes, fontsize=18)
+        _ax.set_xlim([1e1,1e5])
+        _ax.set_ylim([0.5e0,1e5]) 
+        if _idx != 0:
+            _ax.set_ylabel(" ")
+
+    plt.savefig(FIGDIR / "scatter_plot_US_counties.pdf", bbox_inches="tight")
+    plt.show()
+
+    return
+
+
+@app.cell
+def _():
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import cartopy.io.shapereader as shpreader
+    import matplotlib.colors as colors
+
+    return ccrs, colors, shpreader
+
+
+@app.cell
+def _():
+    return
+
+
 @app.cell
 def _():
     return
@@ -1192,8 +1530,507 @@ def _():
 
 @app.cell
 def _():
+    return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Figure 1 paper
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Plot migrations and SCI
+    """)
+    return
+
+
+@app.cell
+def _(pd):
+    sci_df = pd.read_csv("data/US_census_data/features/SCI/us_counties_SCI_2026.csv",
+                         usecols=[2,3,4], dtype={"user_region":str, "friend_region":str, "scaled_sci":float})
+    sci_df
+    return (sci_df,)
+
+
+@app.cell
+def _(flows_us_c, sci_df):
+    COUNTY_FIPS = "48479"
+    df2 = flows_us_c.loc[
+        (flows_us_c["y1_fips"] == COUNTY_FIPS) & 
+        (flows_us_c["y2_fips"].map(lambda x: x[0:2]) == COUNTY_FIPS[0:2]),:
+    ]
+    df2["num_migrants_scaled"] = df2["num_migrants"]/df2["num_migrants"].max()
+    df2
+
+    # df2.loc[(df2.loc[:,"y1_fips"]==COUNTY_FIPS) & (df2.loc[:,"y2_fips"]=="48029"),
+    #                     "num_migrants_scaled"
+    #                     ]
+
+    df = sci_df.loc[
+        (sci_df["user_region"] == COUNTY_FIPS) & 
+        (sci_df["friend_region"].map(lambda x: x[0:2]) == COUNTY_FIPS[0:2]),:
+    ].reset_index(drop=True)
+    df = df.set_index("friend_region")
+    df
+    return (COUNTY_FIPS,)
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(ccrs, colors, flows_us_c, plt, sci_df, shpreader):
+    COUNTY_SHP = "./data/US_census_data/shapefile/cb_2019_us_all_500k/cb_2019_us_county_500k/cb_2019_us_county_500k.shp"
+
+    def map_single_state(
+        COUNTY_FIPS:str = "48453"
+    ) -> plt.Axes:
+
+        fips_state:str = COUNTY_FIPS[0:2]
+    
+        fig, ax = plt.subplots(
+            figsize=(14, 8),
+            subplot_kw={"projection": ccrs.LambertConformal()}
+        )
+
+
+        reader = shpreader.Reader(COUNTY_SHP)
+        county_dct = {
+            (item.attributes["STATEFP"]+item.attributes["COUNTYFP"]):item.geometry 
+            for item in list(reader.records())
+        }
+
+        # Draw counties
+        print("Draw counties")
+        for item in reader.records():
+        
+            if fips_state == str(item.attributes["STATEFP"]):
+                # print(fips)
+                ax.add_geometries(
+                    [item.geometry],
+                    crs=ccrs.PlateCarree(),
+                    facecolor="none",
+                    edgecolor="k",
+                    linewidth=0.4,
+                )
+
+        #/ Color SCI for a specific county
+    
+        # Create colormap for Social Connecdness Index
+        cmap = plt.get_cmap("Blues")
+        norm = colors.Normalize(
+            vmin=0,
+            vmax=0.5e5,
+        )
+    
+        # Define dataframes
+        df = sci_df.loc[
+            (sci_df["user_region"] == COUNTY_FIPS) & 
+            (sci_df["friend_region"].map(lambda x: x[0:2]) == COUNTY_FIPS[0:2]),:
+        ].reset_index(drop=True)
+        df = df.set_index("friend_region")
+
+        df2 = flows_us_c.loc[
+            (flows_us_c["y1_fips"] == COUNTY_FIPS) & 
+            (flows_us_c["y2_fips"].map(lambda x: x[0:2]) == COUNTY_FIPS[0:2]),:
+        ]
+    
+        df2["num_migrants_scaled"] = df2["num_migrants"]/df2["num_migrants"].max()*2.5
+        # df2["num_migrants_scaled"] = np.log(df2["num_migrants"])
+
+        # Select only counties for which we have migration flows
+        # df = df.loc[df.index.intersection(df2["y2_fips"])]
+    
+        print("Adding SCI color")
+        for item in reader.records():
+            fips = str(item.attributes["STATEFP"]) + str(item.attributes["COUNTYFP"])
+            if fips in df.index:
+
+                sci = df.loc[fips,"scaled_sci"]
+                ax.add_geometries(
+                    [item.geometry],
+                    crs=ccrs.PlateCarree(),
+                    facecolor=cmap(norm(sci)),
+                    edgecolor="k",
+                    linewidth=0.4,
+                )
+            if fips == COUNTY_FIPS:
+                ax.add_geometries(
+                    [item.geometry],
+                    crs=ccrs.PlateCarree(),
+                    facecolor="r",
+                    edgecolor="k",
+                    linewidth=0.4,
+                )
+
+
+        print("Adding migration arrows")
+        transform = ccrs.PlateCarree()._as_mpl_transform(ax)
+        lon1 = county_dct[COUNTY_FIPS].centroid.x
+        lat1 = county_dct[COUNTY_FIPS].centroid.y
+    
+        for row in df2.iterrows():
+            lon2 = county_dct[row[1].y2_fips].centroid.x
+            lat2 = county_dct[row[1].y2_fips].centroid.y
+            ax.annotate(
+                "",
+                xy=(lon2, lat2),
+                xytext=(lon1, lat1),
+                xycoords=transform,
+                textcoords=transform,
+                arrowprops=dict(
+                    arrowstyle="->",
+                    linewidth=df2.loc[ 
+                        (df2.loc[:,"y1_fips"]==COUNTY_FIPS) & (df2.loc[:,"y2_fips"]==row[1].y2_fips),
+                        "num_migrants_scaled"
+                        ].item(),
+                    connectionstyle="arc3,rad=0.2",
+                ),
+            )
+
+        # Remove framing box
+        ax.spines["geo"].set_visible(False)
+
+        # Add SCI colorbar
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+    
+        cbar = fig.colorbar(
+            sm,
+            ax=ax,
+            shrink=0.8,
+            pad=0.02,
+        )
+    
+        cbar.set_label("Social Connectedness Index")
+    
+        return ax
+
+    ax = map_single_state(COUNTY_FIPS="06037")
+    # ax.set_extent([-107, -93, 25, 37]) # Texas (fips 48)
+    ax.set_extent([-124.7, -114.0, 32.3, 42.1]) # California (fips 06)
+
+
+
+    # Annotate Los Angeles 
+    lon_la, lat_la = -118.2437, 34.0522
+    _ax.plot(lon_la, lat_la, marker="o", color='k', markersize=5, transform=ccrs.PlateCarree())
+    _ax.annotate(
+        "Los Angeles",
+        xy=(lon_la, lat_la),
+        xytext=(-25, -20),
+        textcoords="offset points",
+        transform=ccrs.PlateCarree(),
+        fontsize=10,
+    )
+
+    plt.show()
+    # plt.savefig(FIGDIR / "paper/Figure 1/map1.pdf", bbox_inches="tight")
+    
+
+    
+    return (COUNTY_SHP,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Plot thresholds in counties
+    """)
+    return
+
+
+@app.cell
+def _(gaussian_max_sample_vec, np):
+    thres = gaussian_max_sample_vec(mu=0, sigma=2.5,n=1_100_195,size=1)[0]
+    int(np.round(thres,0))
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(COUNTY_FIPS, sci_df_counties):
+    sci_df_counties.loc[
+        (sci_df_counties["county_from"] == COUNTY_FIPS) &
+        (sci_df_counties["county_to"].map(lambda x:x[0:2]) == COUNTY_FIPS[0:2]),:
+    ].set_index("county_from")
+    return
+
+
+@app.cell
+def _(COUNTY_SHP, FIGDIR, ccrs, nodes_us_c, np, plt, shpreader):
+    from src.ferm.model import gaussian_max_sample_vec
+
+    def show_thresholds_single_state(
+        COUNTY_FIPS:str = "06037"
+    ) -> plt.Axes:
+
+        fips_state:str = COUNTY_FIPS[0:2]
+    
+        fig, ax = plt.subplots(
+            figsize=(14, 8),
+            subplot_kw={"projection": ccrs.LambertConformal()}
+        )
+
+        reader = shpreader.Reader(COUNTY_SHP)
+        county_dct = {
+            (item.attributes["STATEFP"]+item.attributes["COUNTYFP"]):item.geometry 
+            for item in list(reader.records())
+        }
+
+        # Draw counties
+        print("Draw counties")
+        for item in reader.records():
+            fips = str(item.attributes["STATEFP"]) + str(item.attributes["COUNTYFP"])
+            if fips_state == str(item.attributes["STATEFP"]):
+                ax.add_geometries(
+                    [item.geometry],
+                    crs=ccrs.PlateCarree(),
+                    facecolor='none',
+                    edgecolor="k",
+                    linewidth=0.4,
+                )
+
+            if fips == COUNTY_FIPS:
+                ax.add_geometries(
+                    [item.geometry],
+                    crs=ccrs.PlateCarree(),
+                    facecolor="r",
+                    edgecolor="k",
+                    linewidth=0.4,
+                )
+
+        # Define dataframes
+        df = nodes_us_c.loc[
+            nodes_us_c.loc[:,"fips"].map(lambda x:x[0:2]) == "06",:
+        ].set_index("fips")
+
+        # Put threshold in origin county
+        thres_o = int(np.round(
+            gaussian_max_sample_vec(
+                mu=0,
+                sigma=2.5,
+                n=3_000_000, #df.loc[COUNTY_FIPS].population,
+                size=1,
+            )[0]
+        ,0))
+        ax.annotate(
+            str(thres_o),
+            xy=(county_dct[COUNTY_FIPS].centroid.x, county_dct[COUNTY_FIPS].centroid.y),
+            xytext=(0, 0),
+            textcoords="offset points",
+            transform=ccrs.PlateCarree(),
+            color = 'k',
+            fontsize=10,
+            ha="center",
+            va="center",
+        )
+    
+        for row in df.iterrows():
+            if row[1].name != COUNTY_FIPS:
+                thres = gaussian_max_sample_vec(
+                    mu=0,
+                    sigma=2.5,
+                    n=row[1].population,
+                    size=1,
+                )[0]
+                thres = int(np.round(thres,0)) # Round threshold
+            
+                lon = county_dct[row[1].name].centroid.x
+                lat = county_dct[row[1].name].centroid.y        
+                ax.annotate(
+                    str(thres),
+                    xy=(lon,lat),
+                    xytext=(0, 0),
+                    textcoords="offset points",
+                    transform=ccrs.PlateCarree(),
+                    color = 'g' if thres >= thres_o else 'r',
+                    fontsize=10,
+                    ha="center",
+                    va="center",
+                )
+
+
+        # Remove framing box
+        ax.spines["geo"].set_visible(False)
+    
+        return ax
+
+
+    _ax = show_thresholds_single_state(COUNTY_FIPS="06037")
+    _ax.set_extent([-124.7, -114.0, 32.3, 42.1]) # California (fips 06)
+
+    # plt.show()
+    plt.savefig(FIGDIR / "paper/Figure 1/thesholds.pdf", bbox_inches="tight")
+    return (gaussian_max_sample_vec,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    # Others
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Hierarchical clustering SCI in US counties
+    """)
+    return
+
+
+@app.cell
+def _(ccrs, np, pd, plt, shpreader):
+    def plot_us_counties_clusters(county_clusters:pd.DataFrame) -> plt.Axes:
+        '''
+        county_clusters
+            dataframe containing the cluster identifiers for the US counties
+            from agglomerative clustering
+        '''
+
+        # Define colors
+        colors = np.vstack([
+            plt.get_cmap("tab20").colors,
+            plt.get_cmap("tab20b").colors,
+            plt.get_cmap("tab20c").colors,
+        ])
+        cluster_colors = colors[:50]
+
+        # Plotting
+        fig, ax = plt.subplots(
+            figsize=(14, 8),
+            subplot_kw={"projection": ccrs.LambertConformal()}
+        )
+        ax.set_extent([-125, -66.5, 24, 50], crs=ccrs.PlateCarree())
+
+        COUNTY_SHP = "./data/US_census_data/shapefile/cb_2019_us_all_500k/cb_2019_us_county_500k/cb_2019_us_county_500k.shp"
+        reader = shpreader.Reader(COUNTY_SHP)
+
+        # Draw counties
+        for item in reader.records():
+    
+            fips = str(item.attributes["STATEFP"]) + str(item.attributes["COUNTYFP"])
+
+            try:
+                cluster = county_clusters.loc[fips]
+            except KeyError:
+                cluster = None
+
+            if cluster is None:
+                facecolor = "lightgray"
+            else:
+                facecolor = cluster_colors[cluster]
+
+            ax.add_geometries(
+                [item.geometry],
+                crs=ccrs.PlateCarree(),
+                facecolor=facecolor,
+                edgecolor="white",
+                linewidth=0.1,
+            )
+
+        # Draw states
+        STATE_SHP = "./data/US_census_data/shapefile/cb_2019_us_all_500k/cb_2019_us_state_500k/cb_2019_us_state_500k.shp"
+        reader = shpreader.Reader(STATE_SHP)
+    
+        for item in reader.records():
+            ax.add_geometries(
+                [item.geometry],
+                crs=ccrs.PlateCarree(),
+                facecolor="none",
+                edgecolor="black",
+                linewidth=0.3,
+            )
+
+        # Remove framing box
+        ax.spines["geo"].set_visible(False)
+
+        return ax
+
+    return (plot_us_counties_clusters,)
+
+
+@app.cell
+def _(pd):
+    # https://www.w3schools.com/python/python_ml_hierarchial_clustering.asp
+    # from scipy.cluster.hierarchy import dendrogram, linkage
+    from sklearn.cluster import AgglomerativeClustering 
+
+    sci_df_counties_orig = pd.read_csv("data/US_census_data/features/SCI/us_counties_SCI_2026.csv", usecols=[2,3,4])
+    sci_df_counties_orig.rename(columns={"user_region":"county_from", "friend_region":"county_to"}, inplace=True)
+    sci_df_counties_orig.head()
+    return AgglomerativeClustering, sci_df_counties_orig
+
+
+@app.cell
+def _(np, sci_df_counties_orig):
+    _method = "mlog" # "maxmlog" "mlog"
+    S = sci_df_counties_orig.pivot(index="county_from", columns="county_to", values="scaled_sci").astype(float)
+
+    if _method == "maxmlog":
+        S_log = np.log(S)
+        S_log = S_log.to_numpy(copy=True)
+        np.fill_diagonal(S_log,0)
+        max_log = np.max(S_log)
+
+    elif _method == "mlog":
+        S_log = np.log(S)
+        S_log = S_log.to_numpy(copy=True)
+        np.fill_diagonal(S_log,0)
+        S.iloc[:,:] = - S_log
+    return (S,)
+
+
+@app.cell
+def _(AgglomerativeClustering, S, pd):
+    hierarchical_cluster = AgglomerativeClustering(n_clusters=50, linkage='average', metric="precomputed")
+    labels = hierarchical_cluster.fit( S)
+    county_clusters = pd.DataFrame(index=S.index, data=labels.labels_)
+    county_clusters.index = county_clusters.index.astype(str).str.zfill(5)
+    county_clusters
+    return (county_clusters,)
+
+
+@app.cell
+def _(FIGDIR, county_clusters, plot_us_counties_clusters, plt):
+    plot_us_counties_clusters(county_clusters)
+    plt.savefig(FIGDIR / "hierarchical_clustering_US_counties_50_cluster_method_mlog.png")
+
+    return
+
+
+@app.cell
+def _(np, pd):
+    df3 = pd.read_csv("./data/US_census_data/features/SCI/us_counties_SCI_2026.csv")
+    df3.head()
+
+    df3["scaled_sci_norm"] = -np.log(df3["scaled_sci"])
+    df3.rename(columns={"user_region": "county_from", "friend_region":"county_to","scaled_sci_norm":"scaled_sci_2026_norm"}, inplace=True)
+    #df3
+    #df3[["county_from","county_to","scaled_sci_2026_norm"]].to_csv("./data/US_census_data/features/SCI/us_counties_SCI_2026_minus_log.csv", index=False, float_format='%.5f')
+    return
+
+
+@app.cell
+def _():
     return
 
 

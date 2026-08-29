@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pycountry
 from scipy import stats
+from tqdm import tqdm
 
 from .utils import iso3_to_country
 
@@ -283,11 +284,6 @@ class FERM:
         self.distance_matrix = build_distance_matrix(self.nodes, node_col=node_col)   
         self.node_col = node_col
 
-    def _check_inputs(nodes, features, flows, node_col):
-        #TODO
-        codes = nodes[node_col]
-        
-
     def _prepare_attractiveness_matrix(
         self,
         features: pd.DataFrame,
@@ -322,7 +318,7 @@ class FERM:
         pred_col: str = "predicted_migrants",
         verbose: bool = False,
         rng: Optional[np.random.Generator] = None,
-    ) -> pd.DataFrame:
+    ) -> RadiationRunResult:
         """
         Estimate the FERM origin-destination probability matrix.
 
@@ -358,10 +354,11 @@ class FERM:
         D = self.distance_matrix
 
         probabilities = pd.DataFrame(0.0, index=nodes.index, columns=nodes.index)
-
-        for origin in nodes.index:
-            if verbose:
-                print(origin)
+        
+        for i in tqdm(range(len(nodes.index)), delay=5):
+            origin = nodes.index[i]
+        #for origin in nodes.index:
+            if verbose: print(f"Computing node {origin}")
 
             origin_population = populations[origin]
             threshold_center = Sigma.loc[origin, origin]
@@ -486,6 +483,7 @@ class RM:
         nodes: pd.DataFrame,
         distance_matrix: pd.DataFrame,
         node_col:str="iso3",
+        verbose:bool=True,
     ) -> pd.DataFrame:
         """
         Compute the intervening-population matrix S.
@@ -510,8 +508,10 @@ class RM:
         codes = nodes[node_col].tolist()
         populations = nodes.set_index(node_col)["population"].astype(float)
         S = pd.DataFrame(0.0, index=codes, columns=codes)
-
-        for origin in codes:
+        #for origin in codes:
+        for i in tqdm(range(len(codes)), delay=5):
+            #if verbose: print(f"Computing node {origin}")
+            origin = codes[i]
             d_origin = distance_matrix.loc[origin]
 
             for destination in codes:
@@ -598,7 +598,9 @@ class RM:
             probability matrix, and optional comparison table.
         """
         D = self.distance_matrix
+        print("Building intervening-population")
         S = self.build_intervening_population_matrix(self.nodes, D, node_col=self.node_col)
+        print("Building probabilities")
         P = self.radiation_probabilities(self.nodes, S)
 
         if renormalize:
@@ -679,6 +681,7 @@ def predicted_flows_from_probabilities(
     flow_col: str = "num_migrants",
     pred_col: str = "predicted_migrants",
     eps: float = DEFAULT_EPS,
+    add_error: bool = False,
 ) -> pd.DataFrame:
     """
     Convert a probability matrix into predicted flows by matching
@@ -703,7 +706,6 @@ def predicted_flows_from_probabilities(
         Comparison table containing observed and predicted flows and
         error diagnostics.
     """
-    
     flows = flows.groupby([origin_col, dest_col], as_index=False)[flow_col].sum()
     outflow = flows.groupby(origin_col)[flow_col].sum()
 
@@ -727,16 +729,16 @@ def predicted_flows_from_probabilities(
         comparison["country_to_name"] = comparison[dest_col].map(iso3_to_country)
 
     comparison[flow_col] = comparison[flow_col].fillna(0.0)
-    comparison[pred_col] = comparison[pred_col].fillna(0.0)
-    
+    comparison[pred_col] = comparison[pred_col].fillna(0.0)   
     comparison[pred_col] = comparison[pred_col].round()
 
-    comparison = add_error_columns(
-        comparison=comparison,
-        observed_col=flow_col,
-        predicted_col=pred_col,
-        eps=eps,
-    )
+    if add_error:
+        comparison = add_error_columns(
+            comparison=comparison,
+            observed_col=flow_col,
+            predicted_col=pred_col,
+            eps=eps,
+        )
 
     return comparison
 
