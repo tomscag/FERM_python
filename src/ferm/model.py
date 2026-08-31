@@ -10,6 +10,8 @@ import pycountry
 from scipy import stats
 from tqdm import tqdm
 
+from pathlib import Path 
+
 from .utils import iso3_to_country
 
 
@@ -223,8 +225,14 @@ class RadiationRunResult:
     """
     distance_matrix: pd.DataFrame    
     probability_matrix: pd.DataFrame
-    comparison: pd.DataFrame
+    predictions: pd.DataFrame
     intervening_population_matrix: Optional[pd.DataFrame] = None
+
+    def write_predictions(self, filename: str) -> None:
+        if Path(filename).exists():
+            raise Exception("File already exists")
+        else:
+            self.predictions.to_csv(filename, index=False)
 
 
 # ---------------------------------------------------------------------------
@@ -355,7 +363,7 @@ class FERM:
 
         probabilities = pd.DataFrame(0.0, index=nodes.index, columns=nodes.index)
         
-        for i in tqdm(range(len(nodes.index)), delay=5):
+        for i in tqdm(range(len(nodes.index))):
             origin = nodes.index[i]
         #for origin in nodes.index:
             if verbose: print(f"Computing node {origin}")
@@ -406,7 +414,7 @@ class FERM:
             if total_assigned > 0:
                 probabilities.loc[origin] = counts / total_assigned
 
-        comparison = predicted_flows_from_probabilities(
+        predictions = predicted_flows_from_probabilities(
             self.flows, 
             probabilities, 
             nodes=nodes,
@@ -420,7 +428,7 @@ class FERM:
         return RadiationRunResult(
             distance_matrix=D,
             probability_matrix=probabilities,
-            comparison=comparison,
+            predictions=predictions,
         )
 
 
@@ -509,7 +517,7 @@ class RM:
         populations = nodes.set_index(node_col)["population"].astype(float)
         S = pd.DataFrame(0.0, index=codes, columns=codes)
         #for origin in codes:
-        for i in tqdm(range(len(codes)), delay=5):
+        for i in tqdm(range(len(codes))):
             #if verbose: print(f"Computing node {origin}")
             origin = codes[i]
             d_origin = distance_matrix.loc[origin]
@@ -595,7 +603,7 @@ class RM:
         -------
         RadiationRunResult
             Container with distance matrix, intervening-population matrix,
-            probability matrix, and optional comparison table.
+            probability matrix, and optional predictions table.
         """
         D = self.distance_matrix
         print("Building intervening-population")
@@ -606,9 +614,9 @@ class RM:
         if renormalize:
             P = P.div(P.sum(axis=1).replace(0.0, np.nan), axis=0).fillna(0.0)
 
-        comparison = None
+        predictions = None
         if self.flows is not None:
-            comparison = predicted_flows_from_probabilities(
+            predictions = predicted_flows_from_probabilities(
                 flows=self.flows,
                 P=P,
                 nodes=self.nodes,
@@ -622,7 +630,7 @@ class RM:
         return RadiationRunResult(
             distance_matrix=D,
             probability_matrix=P,
-            comparison=comparison,
+            predictions=predictions,
         )
 
 
@@ -631,17 +639,17 @@ class RM:
 # ---------------------------------------------------------------------------
 
 def add_error_columns(
-    comparison: pd.DataFrame,
+    predictions: pd.DataFrame,
     observed_col: str = "num_migrants",
     predicted_col: str = "predicted_migrants",
     eps: float = DEFAULT_EPS,
 ) -> pd.DataFrame:
     """
-    Add residual and logarithmic error diagnostics to a comparison table.
+    Add residual and logarithmic error diagnostics to a predictions table.
 
     Parameters
     ----------
-    comparison : pd.DataFrame
+    predictions : pd.DataFrame
         Table containing observed and predicted flow columns.
     observed_col : str, default='num_migrants'
         Name of the observed-flow column.
@@ -655,7 +663,7 @@ def add_error_columns(
     pd.DataFrame
         Copy of the input table with additional error columns.
     """
-    out = comparison.copy()
+    out = predictions.copy()
 
     residual = out[predicted_col] - out[observed_col]
 
@@ -722,25 +730,25 @@ def predicted_flows_from_probabilities(
     predicted = predicted.stack().reset_index(name=pred_col)
     predicted = predicted[predicted[origin_col] != predicted[dest_col]].copy()
 
-    comparison = flows.merge(predicted, on=[origin_col, dest_col], how="outer")
+    predictions = flows.merge(predicted, on=[origin_col, dest_col], how="outer")
 
     if {"iso3"}.issubset(nodes.columns):
-        comparison["country_from_name"] = comparison[origin_col].map(iso3_to_country)
-        comparison["country_to_name"] = comparison[dest_col].map(iso3_to_country)
+        predictions["country_from_name"] = predictions[origin_col].map(iso3_to_country)
+        predictions["country_to_name"] = predictions[dest_col].map(iso3_to_country)
 
-    comparison[flow_col] = comparison[flow_col].fillna(0.0)
-    comparison[pred_col] = comparison[pred_col].fillna(0.0)   
-    comparison[pred_col] = comparison[pred_col].round()
+    predictions[flow_col] = predictions[flow_col].fillna(0.0)
+    predictions[pred_col] = predictions[pred_col].fillna(0.0)   
+    predictions[pred_col] = predictions[pred_col].round()
 
     if add_error:
-        comparison = add_error_columns(
-            comparison=comparison,
+        predictions = add_error_columns(
+            predictions=predictions,
             observed_col=flow_col,
             predicted_col=pred_col,
             eps=eps,
         )
 
-    return comparison
+    return predictions
 
 
 def run_parallel(*args, **kwargs):
